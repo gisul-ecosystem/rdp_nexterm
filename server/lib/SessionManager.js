@@ -552,6 +552,13 @@ setInterval(() => {
     if (removed > 0) logger.info(`Cleaned up ${removed} old sessions`);
 }, 30 * 60 * 1000);
 
+module.exports.recordShutdown = async () => {
+    const { recordSessionEnd } = require("../controllers/audit");
+    for (const session of sessions.values()) {
+        await recordSessionEnd(session.auditLogId, "server_restart");
+    }
+};
+
 // lastSeenAt lets closeOrphanedSessionAudits date the logout if the server stops unexpectedly.
 setInterval(() => {
     const auditLogIds = [];

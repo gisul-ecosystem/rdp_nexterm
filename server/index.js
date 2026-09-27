@@ -197,8 +197,10 @@ db.authenticate()
         }
     });
 
-process.on("SIGINT", async () => {
+const shutdown = async () => {
     logger.system("Shutting down server");
+
+    await SessionManager.recordShutdown();
 
     monitoringService.stop();
     pveMonitoringService.stop();
@@ -213,4 +215,7 @@ process.on("SIGINT", async () => {
     await db.close();
 
     process.exit(0);
-});
+};
+
+process.once("SIGINT", shutdown);
+process.once("SIGTERM", shutdown);
