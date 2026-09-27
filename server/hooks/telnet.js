@@ -56,6 +56,6 @@ module.exports = async (ws, ctx) => {
         conn.dataSocket.removeListener("data", dataHandler);
         ws.removeListener("message", msgHandler);
         SessionManager.removeWebSocket(sessionId, ws, isShared);
-        if (!isShared) await updateAuditLogWithSessionDuration(conn.auditLogId, startTime);
+        if (!isShared) await updateAuditLogWithSessionDuration(conn.auditLogId, startTime, "ws_close");
     });
 };

@@ -104,6 +104,6 @@ module.exports = async (ws, context) => {
         dataSocket.removeListener("data", onData);
         ws.removeListener("message", onFirstResize);
         SessionManager.removeWebSocket(serverSession.sessionId, ws);
-        await updateAuditLogWithSessionDuration(auditLogId, startTime);
+        await updateAuditLogWithSessionDuration(auditLogId, startTime, "ws_close");
     });
 };

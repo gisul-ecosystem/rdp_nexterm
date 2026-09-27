@@ -717,13 +717,35 @@ class ControlPlaneServer extends EventEmitter {
     }
 
     _getDefaultEngine() {
-        const first = this._engines.entries().next();
-        return first.done ? null : first.value[1];
+        return this._pickLeastLoadedEngine();
     }
 
     _getDefaultEngineId() {
-        const first = this._engines.keys().next();
-        return first.done ? null : first.value;
+        const engine = this._pickLeastLoadedEngine();
+        return engine ? engine.engineId : null;
+    }
+
+    _pickLeastLoadedEngine() {
+        if (this._engines.size === 0) return null;
+        if (this._engines.size === 1) {
+            const only = this._engines.entries().next();
+            return only.done ? null : only.value[1];
+        }
+        const counts = new Map();
+        for (const id of this._engines.keys()) counts.set(id, 0);
+        for (const engineId of this._sessionEngineMap.values()) {
+            const key = String(engineId);
+            if (counts.has(key)) counts.set(key, counts.get(key) + 1);
+        }
+        let bestId = null;
+        let bestCount = Infinity;
+        for (const [id, count] of counts) {
+            if (count < bestCount) {
+                bestCount = count;
+                bestId = id;
+            }
+        }
+        return bestId ? this._engines.get(bestId) : null;
     }
 
     _startPingLoop() {

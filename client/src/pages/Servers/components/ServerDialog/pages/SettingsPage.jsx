@@ -82,6 +82,7 @@ const SettingsPage = ({ config, setConfig, monitoringEnabled, setMonitoringEnabl
     const [enableFullWindowDrag, setEnableFullWindowDrag] = useState(config?.enableFullWindowDrag === true);
     const [enableDesktopComposition, setEnableDesktopComposition] = useState(config?.enableDesktopComposition === true);
     const [enableMenuAnimations, setEnableMenuAnimations] = useState(config?.enableMenuAnimations === true);
+    const [forceLossless, setForceLossless] = useState(config?.forceLossless !== false);
     const [wakeOnLanEnabled, setWakeOnLanEnabled] = useState(config?.wakeOnLanEnabled === true);
     const [rdpSecurity, setRdpSecurity] = useState(config?.rdpSecurity || "");
     const [backspaceMode, setBackspaceMode] = useState(config?.backspaceMode || "del");
@@ -112,6 +113,7 @@ const SettingsPage = ({ config, setConfig, monitoringEnabled, setMonitoringEnabl
         if (config?.enableFullWindowDrag !== undefined) setEnableFullWindowDrag(config.enableFullWindowDrag);
         if (config?.enableDesktopComposition !== undefined) setEnableDesktopComposition(config.enableDesktopComposition);
         if (config?.enableMenuAnimations !== undefined) setEnableMenuAnimations(config.enableMenuAnimations);
+        if (config?.forceLossless !== undefined) setForceLossless(config.forceLossless);
         if (config?.wakeOnLanEnabled !== undefined) setWakeOnLanEnabled(config.wakeOnLanEnabled);
         if (config?.rdpSecurity !== undefined) setRdpSecurity(config.rdpSecurity);
         if (config?.backspaceMode !== undefined) setBackspaceMode(config.backspaceMode);
@@ -406,6 +408,16 @@ const SettingsPage = ({ config, setConfig, monitoringEnabled, setMonitoringEnabl
                                 {t('servers.dialog.settings.performance.description')}
                             </span>
                         </div>
+                    </div>
+
+                    <div className="settings-toggle">
+                        <div className="settings-toggle-info">
+                            <span className="settings-toggle-label">Force lossless (anti-pixelation)</span>
+                            <span className="settings-toggle-description">
+                                Disables Guacamole lossy compression that causes blocky YouTube. Uses more CPU/bandwidth.
+                            </span>
+                        </div>
+                        <ToggleSwitch checked={forceLossless} onChange={(val) => handleDisplaySettingChange('forceLossless', val, setForceLossless)} id="force-lossless" />
                     </div>
 
                     <div className="settings-toggle">

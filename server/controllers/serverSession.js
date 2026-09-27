@@ -12,6 +12,7 @@ const { Permission } = require("../permissions/registry");
 const Organization = require('../models/Organization');
 const logger = require("../utils/logger");
 const stateBroadcaster = require("../lib/StateBroadcaster");
+const SessionAccessRequest = require("../lib/SessionAccessRequest");
 
 const ENTRY_TYPE_TO_AUDIT_ACTION = {
     'ssh': AUDIT_ACTIONS.SSH_CONNECT,
@@ -54,7 +55,7 @@ const getRequiredConnectPermission = (entry, type, scriptId) => {
     return ENTRY_TYPE_TO_CONNECT_PERMISSION[entryType] || Permission.CONNECT_SSH;
 };
 
-const createSession = async (accountId, entryId, identityId, connectionReason, type = null, directIdentity = null, tabId = null, browserId = null, scriptId = null, startPath = null, ipAddress = null, userAgent = null) => {
+const createSession = async (accountId, entryId, identityId, connectionReason, type = null, directIdentity = null, tabId = null, browserId = null, scriptId = null, startPath = null, ipAddress = null, userAgent = null, permissionRequestId = null) => {
     const entry = await Entry.findByPk(entryId);
     if (!entry) {
         return { code: 404, message: "Entry not found" };
@@ -77,6 +78,15 @@ const createSession = async (accountId, entryId, identityId, connectionReason, t
         }
     }
 
+    const conflict = await SessionAccessRequest.checkConflict({
+        entryId,
+        accountId,
+        type,
+        scriptId,
+        permissionRequestId,
+    });
+    if (conflict) return conflict;
+
     const result = await resolveIdentity(entry, identityId, directIdentity, accountId);
     const identity = result?.identity !== undefined ? result.identity : result;
 
@@ -94,7 +104,11 @@ const createSession = async (accountId, entryId, identityId, connectionReason, t
         action: getAuditAction(entry, scriptId),
         resource: scriptId ? RESOURCE_TYPES.SCRIPT : RESOURCE_TYPES.ENTRY,
         resourceId: scriptId || entry.id,
-        details: { connectionReason, ...(scriptId && { serverId: entry.id }) },
+        details: {
+            connectionReason,
+            loginAt: new Date().toISOString(),
+            ...(scriptId && { serverId: entry.id }),
+        },
         ipAddress,
         userAgent,
     });

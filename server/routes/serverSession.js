@@ -4,6 +4,7 @@ const { execCommand } = require("../controllers/execCommand");
 const { createSessionValidation, sessionIdValidation, resumeSessionValidation, duplicateSessionValidation } = require("../validations/serverSession");
 const { validateSchema } = require("../utils/schema");
 const stateBroadcaster = require("../lib/StateBroadcaster");
+const SessionAccessRequest = require("../lib/SessionAccessRequest");
 
 const app = Router();
 
@@ -21,13 +22,14 @@ app.post("/", async (req, res) => {
     if (validateSchema(res, createSessionValidation, req.body)) return;
     
     try {
-        const { entryId, identityId, connectionReason, type, directIdentity, tabId, browserId, scriptId, startPath } = req.body;
+        const { entryId, identityId, connectionReason, type, directIdentity, tabId, browserId, scriptId, startPath, permissionRequestId } = req.body;
         const ipAddress = req.ip || req.socket?.remoteAddress || 'unknown';
         const userAgent = req.headers['user-agent'] || 'unknown';
-        const result = await createSession(req.user.id, entryId, identityId, connectionReason, type, directIdentity, tabId, browserId, scriptId, startPath, ipAddress, userAgent);
+        const result = await createSession(req.user.id, entryId, identityId, connectionReason, type, directIdentity, tabId, browserId, scriptId, startPath, ipAddress, userAgent, permissionRequestId);
         
         if (result?.code) {
-            return res.status(result.code).json({ error: result.message });
+            const { code, message, ...rest } = result;
+            return res.status(code).json({ error: message, ...rest });
         }
 
         res.status(201).json(result);
@@ -35,6 +37,43 @@ app.post("/", async (req, res) => {
         console.error('Error creating session:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
+});
+
+/**
+ * GET /connections/access-requests/{id}
+ * @summary Get access request status
+ * @description Returns a pending or recently resolved request to take over a busy session.
+ * @tags Connection
+ * @produces application/json
+ * @security BearerAuth
+ * @param {string} id.path.required - Access request ID
+ */
+app.get("/access-requests/:id", (req, res) => {
+    const reqObj = SessionAccessRequest.getRequest(req.params.id);
+    if (!reqObj) return res.status(404).json({ error: "Access request not found" });
+    const accountId = req.user.id;
+    if (accountId !== reqObj.requesterAccountId && accountId !== reqObj.holderAccountId) {
+        return res.status(403).json({ error: "Access denied" });
+    }
+    res.json(SessionAccessRequest.serializeRequest(reqObj));
+});
+
+/**
+ * POST /connections/access-requests/{id}/respond
+ * @summary Respond to access request
+ * @description The active session owner allows or denies another user's takeover request.
+ * @tags Connection
+ * @produces application/json
+ * @security BearerAuth
+ * @param {string} id.path.required - Access request ID
+ */
+app.post("/access-requests/:id/respond", async (req, res) => {
+    const result = await SessionAccessRequest.resolveRequest(req.params.id, req.body?.decision, req.user.id);
+    if (result?.code) {
+        const { code, message, ...rest } = result;
+        return res.status(code).json({ error: message, ...rest });
+    }
+    res.json(result);
 });
 
 /**

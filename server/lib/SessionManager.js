@@ -37,6 +37,14 @@ module.exports.create = (accountId, entryId, configuration, connectionReason = n
 
 module.exports.get = (sessionId) => sessions.get(sessionId) || null;
 
+module.exports.listActiveSessions = () => {
+    const result = [];
+    for (const session of sessions.values()) {
+        if (!session.isHibernated) result.push(session);
+    }
+    return result;
+};
+
 module.exports.getAll = (accountId, tabId = undefined, browserId = undefined) => {
     const results = [];
     for (const session of sessions.values()) {

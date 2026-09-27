@@ -28,6 +28,7 @@ const AUDIT_ACTIONS = {
     SFTP_CONNECT: "entry.sftp_connect",
     PVE_CONNECT: "entry.pve_connect",
     RDP_CONNECT: "entry.rdp_connect",
+    WEB_CONNECT: "entry.web_connect",
     VNC_CONNECT: "entry.vnc_connect",
     DEMO_CONNECT: "entry.demo_connect",
 
@@ -52,6 +53,7 @@ const AUDIT_ACTIONS = {
     IDENTITY_CREDENTIALS_ACCESS: "identity.credentials_access",
 
     SCRIPT_EXECUTE: "script.execute",
+    ACCESS_REQUEST: "entry.access_request",
 
     AI_COMMAND: "ai.command",
     AI_FILE_WRITE: "ai.file_write",
@@ -101,6 +103,7 @@ const ACTION_LABELS = {
     "identity.credentials_access": "Identity credentials accessed",
 
     "script.execute": "Script executed",
+    "entry.access_request": "Session access request",
 
     "ai.command": "AI ran a command",
     "ai.file_write": "AI wrote a file",
@@ -279,15 +282,26 @@ const getAuditLogsInternal = async (accountId, filters = {}) => {
     return result;
 };
 
-const updateAuditLogWithSessionDuration = async (auditLogId, connectionStartTime) => {
+const updateAuditLogWithSessionDuration = async (auditLogId, connectionStartTime, closeReason = "ws_close") => {
     try {
-        if (!auditLogId || !connectionStartTime) return;
+        if (!auditLogId) return;
 
         const auditLog = await AuditLog.findByPk(auditLogId);
         if (!auditLog) return;
 
         const currentDetails = auditLog.details || {};
-        currentDetails.sessionDuration = Math.round((Date.now() - connectionStartTime) / 1000);
+        if (currentDetails.logoutAt) return;
+
+        const startMs = connectionStartTime
+            ? Number(connectionStartTime)
+            : new Date(auditLog.timestamp).getTime();
+        const logoutAt = new Date();
+        currentDetails.sessionDuration = Math.max(0, Math.round((logoutAt.getTime() - startMs) / 1000));
+        currentDetails.logoutAt = logoutAt.toISOString();
+        currentDetails.closeReason = closeReason || "ws_close";
+        if (!currentDetails.loginAt) {
+            currentDetails.loginAt = new Date(startMs).toISOString();
+        }
 
         await AuditLog.update({ details: currentDetails }, { where: { id: auditLogId } });
     } catch (error) {

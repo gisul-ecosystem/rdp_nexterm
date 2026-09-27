@@ -8,11 +8,13 @@ import ViewContainer from "@/pages/Servers/components/ViewContainer";
 import ProxmoxDialog from "@/pages/Servers/components/ProxmoxDialog";
 import SSHConfigImportDialog from "@/pages/Servers/components/SSHConfigImportDialog";
 import ConnectionReasonDialog from "@/pages/Servers/components/ConnectionReasonDialog";
+import { AccessWaitingDialog, AccessApproveDialog } from "@/pages/Servers/components/AccessRequestDialog";
 import DirectConnectDialog from "@/pages/Servers/components/DirectConnectDialog";
 import FileEditorWindow from "@/common/components/FileEditorWindow";
 import FilePreviewWindow from "@/common/components/FilePreviewWindow";
 import { useActiveSessions } from "@/common/contexts/SessionContext.jsx";
 import { useLiveSessions } from "@/common/contexts/LiveSessionContext.jsx";
+import { useToast } from "@/common/contexts/ToastContext.jsx";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ServerContext } from "@/common/contexts/ServerContext.jsx";
 import { StateStreamContext, STATE_TYPES } from "@/common/contexts/StateStreamContext.jsx";
@@ -30,6 +32,8 @@ export const Servers = () => {
     const [directConnectDialogOpen, setDirectConnectDialogOpen] = useState(false);
     const [directConnectServer, setDirectConnectServer] = useState(null);
     const [pendingConnection, setPendingConnection] = useState(null);
+    const [accessWaiting, setAccessWaiting] = useState(null);
+    const [incomingAccessRequest, setIncomingAccessRequest] = useState(null);
     const [openFileEditors, setOpenFileEditors] = useState([]);
     const [mobileServerListOpen, setMobileServerListOpen] = useState(false);
     const [leftPaneSlot, setLeftPaneSlot] = useState(null);
@@ -41,8 +45,11 @@ export const Servers = () => {
     const { liveSessions } = useLiveSessions();
     const { getServerById, servers } = useContext(ServerContext);
     const { registerHandler } = useContext(StateStreamContext);
+    const { sendToast } = useToast();
     const location = useLocation();
     const navigate = useNavigate();
+    const pendingAccessRef = useRef(null);
+    const performConnectionRef = useRef(null);
 
     const [hibernatedSessions, setHibernatedSessions] = useState([]);
     const closingSessionsRef = useRef(new Set());
@@ -131,6 +138,46 @@ export const Servers = () => {
         if (servers) return registerHandler(STATE_TYPES.CONNECTIONS, handleConnectionsUpdate);
     }, [servers, registerHandler, handleConnectionsUpdate]);
 
+    useEffect(() => registerHandler(STATE_TYPES.ACCESS_REQUEST, (data) => {
+        if (!data?.requestId) return;
+
+        if (data.role === "holder") {
+            if (data.status === "pending") setIncomingAccessRequest(data);
+            else setIncomingAccessRequest((current) => current?.requestId === data.requestId ? null : current);
+            return;
+        }
+
+        const pending = pendingAccessRef.current;
+        if (data.role !== "requester" || pending?.requestId !== data.requestId) return;
+
+        if (data.status === "approved") {
+            setAccessWaiting(null);
+            void performConnectionRef.current?.(...pending.args, data.requestId);
+        } else if (data.status === "denied") {
+            pendingAccessRef.current = null;
+            setAccessWaiting(null);
+            sendToast("Access denied", "The active user denied your connection request");
+        }
+    }), [registerHandler, sendToast]);
+
+    const cancelAccessWait = () => {
+        pendingAccessRef.current = null;
+        setAccessWaiting(null);
+    };
+
+    const respondAccessRequest = async (decision) => {
+        const requestId = incomingAccessRequest?.requestId;
+        if (!requestId) return;
+        try {
+            await postRequest(`/connections/access-requests/${requestId}/respond`, { decision });
+            setIncomingAccessRequest(null);
+            if (decision === "deny") sendToast("Request denied", "The other user was blocked from connecting");
+            if (decision === "allow") sendToast("Request allowed", "You will be disconnected; they are taking over");
+        } catch (error) {
+            sendToast("Error", error?.error || error?.message || "Could not respond to request");
+        }
+    };
+
     const findOrganizationForServer = (serverIdNum, entries, currentOrg = null) => {
         for (const entry of entries) {
             if ((entry.type === "server" || entry.type === "pve-server") && entry.id === serverIdNum) {
@@ -211,7 +258,7 @@ export const Servers = () => {
         initiateConnection({ server: getServerById(server), identity, type: "sftp" });
     };
 
-    const performConnection = async (server, identity, connectionReason = null, type = null, directIdentity = null, scriptId = null, scriptName = null) => {
+    const performConnection = async (server, identity, connectionReason = null, type = null, directIdentity = null, scriptId = null, scriptName = null, permissionRequestId = null) => {
         try {
             const payload = {
                 entryId: server.id,
@@ -224,6 +271,7 @@ export const Servers = () => {
 
             if (directIdentity) payload.directIdentity = directIdentity;
             if (scriptId) payload.scriptId = scriptId;
+            if (permissionRequestId) payload.permissionRequestId = permissionRequestId;
             const session = await postRequest("/connections", payload);
 
             const organization = findOrganizationForServer(server.id, servers);
@@ -242,10 +290,26 @@ export const Servers = () => {
 
             setActiveSessions(prevSessions => [...prevSessions, sessionData]);
             setActiveSessionId(session.sessionId);
+            setAccessWaiting(null);
+            pendingAccessRef.current = null;
         } catch (error) {
+            if (error?.needsPermission && error?.requestId) {
+                pendingAccessRef.current = {
+                    requestId: error.requestId,
+                    args: [server, identity, connectionReason, type, directIdentity, scriptId, scriptName],
+                };
+                setAccessWaiting({
+                    holder: error.holder,
+                    entryName: server?.name,
+                    expiresAt: error.expiresAt,
+                });
+                return;
+            }
             console.error("Failed to create session", error);
+            sendToast("Connection failed", error?.error || error?.message || "Could not create session");
         }
     };
+    performConnectionRef.current = performConnection;
 
     const initiateConnection = (options) => {
         if (!options.server) return;
@@ -528,6 +592,19 @@ export const Servers = () => {
                 onClose={handleConnectionReasonCanceled}
                 onConnect={handleConnectionReasonProvided}
                 serverName={pendingConnection?.server?.name || "Unknown Server"}
+            />
+            <AccessWaitingDialog
+                open={!!accessWaiting}
+                holder={accessWaiting?.holder}
+                entryName={accessWaiting?.entryName}
+                expiresAt={accessWaiting?.expiresAt}
+                onCancel={cancelAccessWait}
+            />
+            <AccessApproveDialog
+                open={!!incomingAccessRequest}
+                request={incomingAccessRequest}
+                onAllow={() => respondAccessRequest("allow")}
+                onDeny={() => respondAccessRequest("deny")}
             />
             {leftPaneSlot && createPortal(
                 <ServerList setServerDialogOpen={(protocol = null) => {

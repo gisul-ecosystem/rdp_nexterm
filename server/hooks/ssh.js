@@ -80,7 +80,7 @@ const handleSession = (ws, ctx, isShared) => {
         ws.removeListener("message", msgHandler);
         if (conn.scriptLayer) conn.scriptLayer.removeMessageHandler(ws);
         SessionManager.removeWebSocket(sessionId, ws, isShared);
-        if (!isShared) await updateAuditLogWithSessionDuration(conn.auditLogId, startTime);
+        if (!isShared) await updateAuditLogWithSessionDuration(conn.auditLogId, startTime, "ws_close");
     });
 };
 
