@@ -125,7 +125,7 @@ const resolveRequest = async (requestId, decision, actorAccountId) => {
             && !s.isHibernated);
         for (const session of toKick) {
             try {
-                await SessionManager.remove(session.sessionId, { code: 4015, reason: "Taken over by another user" });
+                await SessionManager.remove(session.sessionId, { code: 4015, reason: "Taken over by another user", closeReason: "replaced" });
             } catch (err) {
                 logger.error("Failed to kick holder session", { sessionId: session.sessionId, error: err.message });
             }

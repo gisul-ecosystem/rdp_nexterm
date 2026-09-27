@@ -1,4 +1,3 @@
-const { updateAuditLogWithSessionDuration } = require("../controllers/audit");
 const SessionManager = require("../lib/SessionManager");
 const GuacdClient = require("../lib/GuacdClient");
 const controlPlane = require("../lib/controlPlane/ControlPlaneServer");
@@ -78,9 +77,6 @@ const handleGuacJoin = async (ws, sessionId, ctx, pinnedMonitor = null) => {
     });
     joinClient.connect();
 
-    const startTime = Date.now();
-    const auditLogId = conn.auditLogId || SessionManager.get(sessionId)?.auditLogId || null;
-
     SessionManager.addWebSocket(sessionId, ws, isShared, buildParticipant(ctx));
 
     if (pinnedMonitor !== null) SessionManager.pinMonitor(sessionId, ws, pinnedMonitor);
@@ -89,20 +85,14 @@ const handleGuacJoin = async (ws, sessionId, ctx, pinnedMonitor = null) => {
     const heartbeat = startHeartbeat(ws);
     let finalized = false;
 
-    const finalize = async (closeReason) => {
+    const finalize = (closeReason) => {
         if (finalized) return;
         finalized = true;
         heartbeat.stop();
         joinClient.close();
         SessionManager.unpinMonitor(sessionId, ws);
         SessionManager.removeWebSocket(sessionId, ws, isShared);
-        if (!isShared) {
-            try {
-                await updateAuditLogWithSessionDuration(auditLogId, startTime, closeReason);
-            } catch (err) {
-                logger.error("Failed to record Guac session logout", { sessionId, error: err.message });
-            }
-        }
+        if (!isShared) SessionManager.endIfUnattended(sessionId, closeReason);
     };
 
     ws.on("message", (msg) => {

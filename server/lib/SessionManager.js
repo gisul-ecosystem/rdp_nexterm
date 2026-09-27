@@ -283,7 +283,11 @@ module.exports.addWebSocket = (sessionId, ws, isShared = false, participant = nu
     const session = module.exports.get(sessionId);
     if (!session) return;
     if (isShared) session.sharedWs.add(ws);
-    else session.connectedWs.add(ws);
+    else {
+        session.connectedWs.add(ws);
+        clearTimeout(session._unattendedTimer);
+        session._unattendedTimer = null;
+    }
 
     if (participant) {
         session.participants.set(ws, {
@@ -315,6 +319,27 @@ module.exports.removeWebSocket = (sessionId, ws, isShared = false) => {
         session.participants.delete(ws);
         schedulePresence(session, true);
     }
+};
+
+// Grace period covers page reloads and popping a session out into its own window.
+const UNATTENDED_GRACE_MS = 15000;
+
+module.exports.endIfUnattended = (sessionId, closeReason) => {
+    const session = module.exports.get(sessionId);
+    if (!session || session._removing || session.isHibernated || session.connectedWs.size > 0) return;
+    clearTimeout(session._unattendedTimer);
+    session._unattendedTimer = setTimeout(() => {
+        session._unattendedTimer = null;
+        if (session.isHibernated || session.connectedWs.size > 0) return;
+        logger.info("Ending session: browser disconnected", { sessionId, closeReason });
+        module.exports.remove(sessionId, { closeReason });
+    }, UNATTENDED_GRACE_MS);
+};
+
+const closeReasonForCode = (code) => {
+    if (code === 4015) return "replaced";
+    if (code === 4017) return "connect_failed";
+    return "ended";
 };
 
 const closeAllWebSockets = (sessionId, code = 1000, reason = "Session terminated") => {
@@ -355,6 +380,8 @@ module.exports.hibernate = (sessionId) => {
     if (!session) return false;
     session.isHibernated = true;
     session.lastActivity = new Date();
+    clearTimeout(session._unattendedTimer);
+    session._unattendedTimer = null;
     logger.info(`Session hibernated`, { sessionId });
     return true;
 };
@@ -397,8 +424,9 @@ module.exports.remove = async (sessionId, options = {}) => {
     const session = module.exports.get(sessionId);
     if (!session || session._removing) return false;
     session._removing = true;
+    clearTimeout(session._unattendedTimer);
 
-    const { code = 1000, reason = "Session terminated" } = options;
+    const { code = 1000, reason = "Session terminated", closeReason = closeReasonForCode(code) } = options;
     closeAllWebSockets(sessionId, code, reason);
     if (session.recording) await finalizeTerminalRecording(sessionId);
     if (session.masterConnection) {
@@ -413,7 +441,8 @@ module.exports.remove = async (sessionId, options = {}) => {
 
     const { accountId, organizationId } = session;
     sessions.delete(sessionId);
-    logger.info("Session removed", { sessionId });
+    logger.info("Session removed", { sessionId, closeReason });
+    await require("../controllers/audit").recordSessionEnd(session.auditLogId, closeReason);
     stateBroadcaster.broadcast("CONNECTIONS", { accountId });
     if (organizationId) stateBroadcaster.broadcast("LIVE_SESSIONS", { organizationId });
     return true;
@@ -495,7 +524,7 @@ module.exports.getByShareId = (shareId) => {
 module.exports.removeAllByAccountId = async (accountId) => {
     const numericId = Number(accountId);
     const toRemove = [...sessions.entries()].filter(([, s]) => s.accountId === numericId).map(([id]) => id);
-    for (const id of toRemove) await module.exports.remove(id);
+    for (const id of toRemove) await module.exports.remove(id, { closeReason: "account_logout" });
     logger.info(`Removed all sessions for account`, { accountId, count: toRemove.length });
     return toRemove.length;
 };
@@ -503,7 +532,7 @@ module.exports.removeAllByAccountId = async (accountId) => {
 module.exports.removeAllByEntryId = async (entryId) => {
     const numericId = Number(entryId);
     const toRemove = [...sessions.entries()].filter(([, s]) => s.entryId === numericId).map(([id]) => id);
-    for (const id of toRemove) await module.exports.remove(id);
+    for (const id of toRemove) await module.exports.remove(id, { closeReason: "entry_removed" });
     if (toRemove.length > 0) {
         logger.info(`Removed all sessions for entry`, { entryId, count: toRemove.length });
     }
@@ -516,9 +545,18 @@ setInterval(() => {
     for (const [sessionId, session] of sessions) {
         if (!session.isHibernated && new Date(session.lastActivity) < sixHoursAgo) {
             logger.info("Removing old session", { sessionId });
-            module.exports.remove(sessionId);
+            module.exports.remove(sessionId, { closeReason: "expired" });
             removed++;
         }
     }
     if (removed > 0) logger.info(`Cleaned up ${removed} old sessions`);
 }, 30 * 60 * 1000);
+
+// lastSeenAt lets closeOrphanedSessionAudits date the logout if the server stops unexpectedly.
+setInterval(() => {
+    const auditLogIds = [];
+    for (const session of sessions.values()) {
+        if (session.auditLogId && session.connectedWs.size > 0) auditLogIds.push(session.auditLogId);
+    }
+    if (auditLogIds.length) require("../controllers/audit").touchSessionAudits(auditLogIds);
+}, 60 * 1000);

@@ -1,6 +1,6 @@
-const { updateAuditLogWithSessionDuration } = require("../controllers/audit");
 const SessionManager = require("../lib/SessionManager");
 const { buildParticipant, createWriteGuard } = require("../utils/sessionParticipant");
+const { startHeartbeat } = require("../utils/wsHeartbeat");
 
 const handleShared = (ws, ctx) => {
     const { serverSession } = ctx;
@@ -74,8 +74,7 @@ module.exports = async (ws, context) => {
     const conn = SessionManager.getConnection(serverSession.sessionId);
     if (!conn?.dataSocket) return ws.close(4014, "Session not connected");
 
-    const { dataSocket, auditLogId } = conn;
-    const startTime = Date.now();
+    const { dataSocket } = conn;
 
     const logs = SessionManager.getLogBuffer(serverSession.sessionId);
     if (logs && ws.readyState === ws.OPEN) ws.send(logs);
@@ -100,10 +99,13 @@ module.exports = async (ws, context) => {
     };
     ws.on("message", onFirstResize);
 
-    ws.on("close", async () => {
+    const heartbeat = startHeartbeat(ws);
+
+    ws.on("close", (code) => {
+        heartbeat.stop();
         dataSocket.removeListener("data", onData);
         ws.removeListener("message", onFirstResize);
         SessionManager.removeWebSocket(serverSession.sessionId, ws);
-        await updateAuditLogWithSessionDuration(auditLogId, startTime, "ws_close");
+        SessionManager.endIfUnattended(serverSession.sessionId, heartbeat.closeReason(code));
     });
 };

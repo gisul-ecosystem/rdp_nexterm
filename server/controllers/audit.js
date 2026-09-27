@@ -309,6 +309,58 @@ const updateAuditLogWithSessionDuration = async (auditLogId, connectionStartTime
     }
 };
 
+const endSessionDetails = (details, endAt, closeReason, fallbackStart) => {
+    const loginAt = details.loginAt || new Date(fallbackStart).toISOString();
+    return {
+        ...details,
+        loginAt,
+        logoutAt: endAt.toISOString(),
+        sessionDuration: Math.max(0, Math.round((endAt.getTime() - new Date(loginAt).getTime()) / 1000)),
+        closeReason,
+    };
+};
+
+const recordSessionEnd = async (auditLogId, closeReason) => {
+    if (!auditLogId) return;
+    try {
+        const auditLog = await AuditLog.findByPk(auditLogId);
+        if (!auditLog || auditLog.details?.logoutAt) return;
+        const details = endSessionDetails(auditLog.details || {}, new Date(), closeReason, auditLog.timestamp);
+        await AuditLog.update({ details }, { where: { id: auditLogId } });
+    } catch (error) {
+        logger.error("Error recording session end", { error: error.message, auditLogId });
+    }
+};
+
+const touchSessionAudits = async (auditLogIds) => {
+    const lastSeenAt = new Date().toISOString();
+    for (const id of auditLogIds) {
+        try {
+            const auditLog = await AuditLog.findByPk(id);
+            if (!auditLog || auditLog.details?.logoutAt) continue;
+            await AuditLog.update({ details: { ...(auditLog.details || {}), lastSeenAt } }, { where: { id } });
+        } catch (error) {
+            logger.error("Error updating session lastSeenAt", { error: error.message, auditLogId: id });
+        }
+    }
+};
+
+// Sessions live in memory only, so any session audit still open at boot ended when the server stopped.
+const closeOrphanedSessionAudits = async () => {
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const connectActions = Object.entries(AUDIT_ACTIONS).filter(([key]) => key.endsWith("_CONNECT")).map(([, action]) => action);
+    const logs = await AuditLog.findAll({ where: { action: connectActions, timestamp: { [Op.gte]: since } } });
+    let closed = 0;
+    for (const log of logs) {
+        const details = log.details || {};
+        if (!details.loginAt || details.logoutAt) continue;
+        const endAt = new Date(details.lastSeenAt || details.loginAt);
+        await AuditLog.update({ details: endSessionDetails(details, endAt, "server_restart", log.timestamp) }, { where: { id: log.id } });
+        closed++;
+    }
+    if (closed > 0) logger.system(`Closed ${closed} session audit entries left open by the last shutdown`);
+};
+
 module.exports.getAuditLogs = async (accountId, filters = {}) => {
     try {
         const { organizationId } = filters;
@@ -411,5 +463,8 @@ module.exports.isConnectionReasonRequired = async (organizationId) => {
     return settings?.requireConnectionReason || false;
 };
 module.exports.updateAuditLogWithSessionDuration = updateAuditLogWithSessionDuration;
+module.exports.recordSessionEnd = recordSessionEnd;
+module.exports.touchSessionAudits = touchSessionAudits;
+module.exports.closeOrphanedSessionAudits = closeOrphanedSessionAudits;
 module.exports.AUDIT_ACTIONS = AUDIT_ACTIONS;
 module.exports.RESOURCE_TYPES = RESOURCE_TYPES;

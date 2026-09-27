@@ -25,6 +25,7 @@ const backupService = require("./utils/backupService");
 const controlPlane = require("./lib/controlPlane/ControlPlaneServer");
 const SessionManager = require("./lib/SessionManager");
 const { ensureLocalEngine } = require("./controllers/engine");
+const { closeOrphanedSessionAudits } = require("./controllers/audit");
 const { ensureCPCerts } = require("./utils/controlPlaneCerts");
 require("./utils/folder");
 
@@ -130,6 +131,8 @@ db.authenticate()
         const migrationRunner = new MigrationRunner();
         await migrationRunner.runMigrations();
 
+        await closeOrphanedSessionAudits();
+
         await ensureInternalProvider();
 
         startStatusChecker();
@@ -153,13 +156,13 @@ db.authenticate()
 
         controlPlane.on("sessionClosed", ({ sessionId, reason }) => {
             logger.info(`Engine session closed: ${sessionId} (reason: ${reason})`);
-            SessionManager.remove(sessionId);
+            SessionManager.remove(sessionId, { closeReason: "remote_closed" });
         });
 
         controlPlane.on("engineDisconnected", ({ engineId, sessionIds }) => {
             logger.warn(`Engine ${engineId} disconnected, cleaning up ${sessionIds.length} sessions`);
             for (const sessionId of sessionIds) {
-                SessionManager.remove(sessionId);
+                SessionManager.remove(sessionId, { closeReason: "engine_lost" });
             }
         });
 

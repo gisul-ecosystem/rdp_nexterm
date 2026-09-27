@@ -29,7 +29,9 @@ const startHeartbeat = (ws) => {
         closeReason: (code) => {
             if (stale) return "stale_timeout";
             if (code === TAKEOVER_CLOSE_CODE) return "replaced";
-            return "ws_close";
+            if (code === 1001) return "tab_closed";
+            if (code === 1006) return "connection_lost";
+            return "view_closed";
         },
     };
 };

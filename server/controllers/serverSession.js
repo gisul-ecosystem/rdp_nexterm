@@ -206,7 +206,7 @@ const resumeSession = (sessionId, tabId = null, browserId = null) => {
 };
 
 const deleteSession = (sessionId) => {
-    const success = SessionManager.remove(sessionId);
+    const success = SessionManager.remove(sessionId, { closeReason: "user_disconnect" });
     if (success) {
         return { message: "Session deleted" };
     }

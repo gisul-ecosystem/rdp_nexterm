@@ -1,4 +1,3 @@
-const { updateAuditLogWithSessionDuration } = require("../controllers/audit");
 const SessionManager = require("../lib/SessionManager");
 const { parseResizeMessage } = require("../utils/sshEventHandlers");
 const { translateKeys } = require("../utils/keyTranslation");
@@ -46,8 +45,6 @@ const handleSession = (ws, ctx, isShared) => {
 
     if (!conn?.dataSocket) return ws.close(4014, "Session not connected");
 
-    const startTime = Date.now();
-
     if (!conn.scriptLayer) {
         const logs = SessionManager.getLogBuffer(sessionId);
         if (logs && ws.readyState === ws.OPEN) ws.send(logs);
@@ -78,13 +75,13 @@ const handleSession = (ws, ctx, isShared) => {
 
     const heartbeat = startHeartbeat(ws);
 
-    ws.on("close", async (code) => {
+    ws.on("close", (code) => {
         heartbeat.stop();
         conn.dataSocket.removeListener("data", dataHandler);
         ws.removeListener("message", msgHandler);
         if (conn.scriptLayer) conn.scriptLayer.removeMessageHandler(ws);
         SessionManager.removeWebSocket(sessionId, ws, isShared);
-        if (!isShared) await updateAuditLogWithSessionDuration(conn.auditLogId, startTime, heartbeat.closeReason(code));
+        if (!isShared) SessionManager.endIfUnattended(sessionId, heartbeat.closeReason(code));
     });
 };
 

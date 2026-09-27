@@ -1,9 +1,9 @@
-const { updateAuditLogWithSessionDuration } = require("../controllers/audit");
 const SessionManager = require("../lib/SessionManager");
 const { parseResizeMessage } = require("../utils/sshEventHandlers");
 const { translateKeys } = require("../utils/keyTranslation");
 const controlPlane = require("../lib/controlPlane/ControlPlaneServer");
 const { buildParticipant, createWriteGuard } = require("../utils/sessionParticipant");
+const { startHeartbeat } = require("../utils/wsHeartbeat");
 
 const bindHandlers = (ws, conn, sessionId, config, isShared, canWrite) => {
     const { dataSocket } = conn;
@@ -40,8 +40,6 @@ module.exports = async (ws, ctx) => {
 
     if (!conn?.dataSocket) return ws.close(4014, "Session not connected");
 
-    const startTime = Date.now();
-
     const logs = SessionManager.getLogBuffer(sessionId);
     if (logs && ws.readyState === ws.OPEN) ws.send(logs);
 
@@ -52,10 +50,13 @@ module.exports = async (ws, ctx) => {
 
     const { msgHandler, dataHandler } = bindHandlers(ws, conn, sessionId, entry?.config, isShared, canWrite);
 
-    ws.on("close", async () => {
+    const heartbeat = startHeartbeat(ws);
+
+    ws.on("close", (code) => {
+        heartbeat.stop();
         conn.dataSocket.removeListener("data", dataHandler);
         ws.removeListener("message", msgHandler);
         SessionManager.removeWebSocket(sessionId, ws, isShared);
-        if (!isShared) await updateAuditLogWithSessionDuration(conn.auditLogId, startTime, "ws_close");
+        if (!isShared) SessionManager.endIfUnattended(sessionId, heartbeat.closeReason(code));
     });
 };
