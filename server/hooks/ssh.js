@@ -5,6 +5,7 @@ const { translateKeys } = require("../utils/keyTranslation");
 const controlPlane = require("../lib/controlPlane/ControlPlaneServer");
 const { SCRIPT_MAGIC } = require("../lib/ScriptLayer");
 const { buildParticipant, createWriteGuard } = require("../utils/sessionParticipant");
+const { startHeartbeat } = require("../utils/wsHeartbeat");
 
 const bindHandlers = (ws, conn, sessionId, config, isShared, canWrite) => {
     const { dataSocket, scriptLayer } = conn;
@@ -75,12 +76,15 @@ const handleSession = (ws, ctx, isShared) => {
         ws.on("close", () => ws.removeListener("message", onResize));
     }
 
-    ws.on("close", async () => {
+    const heartbeat = startHeartbeat(ws);
+
+    ws.on("close", async (code) => {
+        heartbeat.stop();
         conn.dataSocket.removeListener("data", dataHandler);
         ws.removeListener("message", msgHandler);
         if (conn.scriptLayer) conn.scriptLayer.removeMessageHandler(ws);
         SessionManager.removeWebSocket(sessionId, ws, isShared);
-        if (!isShared) await updateAuditLogWithSessionDuration(conn.auditLogId, startTime, "ws_close");
+        if (!isShared) await updateAuditLogWithSessionDuration(conn.auditLogId, startTime, heartbeat.closeReason(code));
     });
 };
 

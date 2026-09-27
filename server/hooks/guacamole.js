@@ -4,6 +4,7 @@ const GuacdClient = require("../lib/GuacdClient");
 const controlPlane = require("../lib/controlPlane/ControlPlaneServer");
 const logger = require("../utils/logger");
 const { buildParticipant, createWriteGuard } = require("../utils/sessionParticipant");
+const { startHeartbeat } = require("../utils/wsHeartbeat");
 
 const SIZED_MONITOR = /\.size,\d+\.-?\d+,\d+\.-?\d+,\d+\.(-?\d+)/;
 const MOUSE_BUTTONS = /\.mouse,\d+\.\d+,\d+\.\d+,(\d+)\.(\d+);/;
@@ -85,12 +86,13 @@ const handleGuacJoin = async (ws, sessionId, ctx, pinnedMonitor = null) => {
     if (pinnedMonitor !== null) SessionManager.pinMonitor(sessionId, ws, pinnedMonitor);
     else if (!isShared || canWrite()) SessionManager.setActiveWs(sessionId, ws);
 
-    const pingInterval = setInterval(() => {
-        if (ws.readyState === ws.OPEN) ws.ping();
-    }, 15000);
+    const heartbeat = startHeartbeat(ws);
+    let finalized = false;
 
     const finalize = async (closeReason) => {
-        clearInterval(pingInterval);
+        if (finalized) return;
+        finalized = true;
+        heartbeat.stop();
         joinClient.close();
         SessionManager.unpinMonitor(sessionId, ws);
         SessionManager.removeWebSocket(sessionId, ws, isShared);
@@ -127,8 +129,8 @@ const handleGuacJoin = async (ws, sessionId, ctx, pinnedMonitor = null) => {
         joinClient.send(msgStr);
     });
 
-    ws.on("close", () => {
-        finalize("ws_close");
+    ws.on("close", (code) => {
+        finalize(heartbeat.closeReason(code));
     });
 
     ws.on("error", () => {
