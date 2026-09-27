@@ -27,13 +27,13 @@
     "@ai-sdk/provider" "4.0.3"
     "@ai-sdk/provider-utils" "5.0.10"
 
-"@ai-sdk/openai@^4.0.15":
-  version "4.0.15"
-  resolved "https://registry.yarnpkg.com/@ai-sdk/openai/-/openai-4.0.15.tgz#4442f941f883fd81e98077ea00a5c531ea2e9481"
-  integrity sha512-JpTLQp5RUbRcs5nOyPEu5NRdxZLUnD/uCyT3qzy26D+iunCeL7KJV58ER9kwisAKnTjWravfNblaQNiWr20M9A==
+"@ai-sdk/openai@^4.0.74":
+  version "4.0.74"
+  resolved "https://registry.yarnpkg.com/@ai-sdk/openai/-/openai-4.0.74.tgz#2e75bbfa35b07bdb9ac94510706f177727bcc688"
+  integrity sha512-w8/lTBdxf3FR2sP2i7ihQkQhO7eHPL6dHw80sVW28IeoMIi8UhcNCFUkSniO0tANP67R0X/im8ejXPPf1fZUQw==
   dependencies:
-    "@ai-sdk/provider" "4.0.3"
-    "@ai-sdk/provider-utils" "5.0.10"
+    "@ai-sdk/provider" "4.0.18"
+    "@ai-sdk/provider-utils" "5.0.47"
 
 "@ai-sdk/provider-utils@5.0.10":
   version "5.0.10"
@@ -44,6 +44,24 @@
     "@standard-schema/spec" "^1.1.0"
     "@workflow/serde" "4.1.0"
     eventsource-parser "^3.0.8"
+
+"@ai-sdk/provider-utils@5.0.47":
+  version "5.0.47"
+  resolved "https://registry.yarnpkg.com/@ai-sdk/provider-utils/-/provider-utils-5.0.47.tgz#63ba49175aeef10d3fd070a9be8b2157df22a79f"
+  integrity sha512-NZQ1hMxY6Hd4ZiinjpU5HUOsyCHiTFkHw7AiM1EVN+Cd3kNTi47flZWNvFwGqnBojntB1+2eBRTeHRuVLtPhEg==
+  dependencies:
+    "@ai-sdk/provider" "4.0.18"
+    "@standard-schema/spec" "^1.1.0"
+    "@workflow/serde" "4.1.0"
+    eventsource-parser "^3.0.8"
+    undici "^7.29.0"
+
+"@ai-sdk/provider@4.0.18":
+  version "4.0.18"
+  resolved "https://registry.yarnpkg.com/@ai-sdk/provider/-/provider-4.0.18.tgz#4bcf35dcd0b27ee11ccd5510f29f54517be7ebeb"
+  integrity sha512-+GZJIgz1jk86pwEbb3f1BD2bdoSKyWE4Jg4YUc7NMnMozbWemSKYZcw2F4nMaO5qwsL5A8RmioAKW81YktRpIQ==
+  dependencies:
+    json-schema "^0.4.0"
 
 "@ai-sdk/provider@4.0.3":
   version "4.0.3"
@@ -4484,6 +4502,11 @@ undici-types@~7.16.0:
   version "7.16.0"
   resolved "https://registry.yarnpkg.com/undici-types/-/undici-types-7.16.0.tgz#ffccdff36aea4884cbfce9a750a0580224f58a46"
   integrity sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==
+
+undici@^7.29.0:
+  version "7.30.0"
+  resolved "https://registry.yarnpkg.com/undici/-/undici-7.30.0.tgz#64a947266eb7e21dbeac8b99f8720feef308bbe0"
+  integrity sha512-dkrQXeHSaoamnItlYbmzG0wFYrM0ZwDxCIg0A7aKjTyyhh9svRzCNFEzV+Vm05/yehjCzjDZ31KXfGEjYSztDQ==
 
 unist-util-is@^6.0.0:
   version "6.0.1"
