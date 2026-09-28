@@ -13,11 +13,11 @@ const CONTROL_PLANE_TYPES = new Set(["ssh", "sftp", "guac", "pve-lxc"]);
 const TYPING_DURATION_MS = 1500;
 const PRESENCE_THROTTLE_MS = 250;
 
-module.exports.create = (accountId, entryId, configuration, connectionReason = null, tabId = null, browserId = null, auditLogId = null, organizationId = null) => {
+module.exports.create = (accountId, entryId, configuration, connectionReason = null, tabId = null, browserId = null, auditLogId = null, organizationId = null, loginSessionId = null) => {
     const sessionId = uuidv4();
     const session = {
         sessionId, accountId, entryId, configuration, connectionReason,
-        tabId, browserId, auditLogId, organizationId,
+        tabId, browserId, auditLogId, organizationId, loginSessionId,
         isHibernated: false,
         createdAt: new Date(),
         lastActivity: new Date(),
@@ -392,13 +392,14 @@ module.exports.hibernate = (sessionId) => {
     return true;
 };
 
-module.exports.resume = (sessionId, tabId = null, browserId = null) => {
+module.exports.resume = (sessionId, tabId = null, browserId = null, loginSessionId = null) => {
     const session = module.exports.get(sessionId);
     if (!session) return false;
     session.isHibernated = false;
     session.lastActivity = new Date();
     if (tabId !== null) session.tabId = tabId;
     if (browserId !== null) session.browserId = browserId;
+    if (loginSessionId !== null) session.loginSessionId = loginSessionId;
     logger.info(`Session resumed`, { sessionId });
     return true;
 };

@@ -55,7 +55,7 @@ const getRequiredConnectPermission = (entry, type, scriptId) => {
     return ENTRY_TYPE_TO_CONNECT_PERMISSION[entryType] || Permission.CONNECT_SSH;
 };
 
-const createSession = async (accountId, entryId, identityId, connectionReason, type = null, directIdentity = null, tabId = null, browserId = null, scriptId = null, startPath = null, ipAddress = null, userAgent = null, permissionRequestId = null) => {
+const createSession = async (accountId, entryId, identityId, connectionReason, type = null, directIdentity = null, tabId = null, browserId = null, scriptId = null, startPath = null, ipAddress = null, userAgent = null, permissionRequestId = null, loginSessionId = null) => {
     const entry = await Entry.findByPk(entryId);
     if (!entry) {
         return { code: 404, message: "Entry not found" };
@@ -84,6 +84,8 @@ const createSession = async (accountId, entryId, identityId, connectionReason, t
         type,
         scriptId,
         permissionRequestId,
+        loginSessionId,
+        browserId,
     });
     if (conflict) return conflict;
 
@@ -122,7 +124,7 @@ const createSession = async (accountId, entryId, identityId, connectionReason, t
         renderer: type === "sftp" ? "sftp" : entry.renderer,
     };
 
-    const session = SessionManager.create(accountId, entryId, configuration, connectionReason, tabId, browserId, auditLogId, entry.organizationId);
+    const session = SessionManager.create(accountId, entryId, configuration, connectionReason, tabId, browserId, auditLogId, entry.organizationId, loginSessionId);
 
     stateBroadcaster.broadcast("CONNECTIONS", { accountId });
     if (entry.organizationId) stateBroadcaster.broadcast("LIVE_SESSIONS", { organizationId: entry.organizationId });
@@ -196,10 +198,10 @@ const hibernateSession = (accountId, sessionId) => {
     return { message: "Session hibernated" };
 };
 
-const resumeSession = (accountId, sessionId, tabId = null, browserId = null) => {
+const resumeSession = (accountId, sessionId, tabId = null, browserId = null, loginSessionId = null) => {
     const { error } = validateSessionOwnership(accountId, sessionId);
     if (error) return error;
-    SessionManager.resume(sessionId, tabId, browserId);
+    SessionManager.resume(sessionId, tabId, browserId, loginSessionId);
     return { message: "Session resumed" };
 };
 
@@ -285,7 +287,7 @@ const updateSharePermissions = (accountId, sessionId, writable) => {
     return { writable };
 };
 
-const duplicateSession = async (accountId, sessionId, tabId = null, browserId = null, ipAddress = null, userAgent = null) => {
+const duplicateSession = async (accountId, sessionId, tabId = null, browserId = null, ipAddress = null, userAgent = null, loginSessionId = null) => {
     const session = SessionManager.get(sessionId);
     if (!session) {
         return { code: 404, message: "Session not found" };
@@ -314,7 +316,9 @@ const duplicateSession = async (accountId, sessionId, tabId = null, browserId = 
         config.scriptId,
         config.startPath || null,
         ipAddress,
-        userAgent
+        userAgent,
+        null,
+        loginSessionId
     );
 };
 

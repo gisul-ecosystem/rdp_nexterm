@@ -10,6 +10,11 @@ const holderLabel = (holder) => {
     return name || holder.username || `user #${holder.id}`;
 };
 
+const deviceLabel = (device) => {
+    if (!device) return "another device";
+    return device.ip ? `${device.label}, ${device.ip}` : device.label;
+};
+
 const useSecondsLeft = (open, expiresAt) => {
     const [secondsLeft, setSecondsLeft] = useState(null);
 
@@ -30,7 +35,7 @@ const useSecondsLeft = (open, expiresAt) => {
     return secondsLeft;
 };
 
-export const AccessWaitingDialog = ({ open, holder, entryName, expiresAt, onCancel }) => {
+export const AccessWaitingDialog = ({ open, holder, sameAccount, holderDevice, entryName, expiresAt, onCancel }) => {
     const { t } = useTranslation();
     const secondsLeft = useSecondsLeft(open, expiresAt);
 
@@ -39,11 +44,18 @@ export const AccessWaitingDialog = ({ open, holder, entryName, expiresAt, onCanc
             <div className="access-request-dialog">
                 <h2>{t("servers.accessRequest.waitingTitle", { defaultValue: "Waiting for approval" })}</h2>
                 <p>
-                    {t("servers.accessRequest.waitingBody", {
-                        defaultValue: "{{entry}} is in use by {{user}}. Waiting for them to Allow or Deny.",
-                        entry: entryName || "This VM",
-                        user: holderLabel(holder),
-                    })}
+                    {sameAccount
+                        ? t("servers.accessRequest.waitingBodySameAccount", {
+                            defaultValue: "{{entry}} is in use by someone else signed in as {{user}} ({{device}}). Waiting for them to Allow or Deny.",
+                            entry: entryName || "This VM",
+                            user: holder?.username || "this account",
+                            device: deviceLabel(holderDevice),
+                        })
+                        : t("servers.accessRequest.waitingBody", {
+                            defaultValue: "{{entry}} is in use by {{user}}. Waiting for them to Allow or Deny.",
+                            entry: entryName || "This VM",
+                            user: holderLabel(holder),
+                        })}
                 </p>
                 {secondsLeft !== null && (
                     <p className="access-request-timer">
@@ -70,11 +82,18 @@ export const AccessApproveDialog = ({ open, request, onAllow, onDeny }) => {
             <div className="access-request-dialog">
                 <h2>{t("servers.accessRequest.approveTitle", { defaultValue: "Connection request" })}</h2>
                 <p>
-                    {t("servers.accessRequest.approveBody", {
-                        defaultValue: "{{user}} wants to take over {{entry}}. Allowing will disconnect you.",
-                        user: holderLabel(request?.requester),
-                        entry: request?.holderEntryName || request?.entryName || "this VM",
-                    })}
+                    {request?.sameAccount
+                        ? t("servers.accessRequest.approveBodySameAccount", {
+                            defaultValue: "Someone else signed in as {{user}} on {{device}} wants to take over {{entry}}. Allowing will disconnect you.",
+                            user: request?.requester?.username || "this account",
+                            device: deviceLabel(request?.requesterDevice),
+                            entry: request?.holderEntryName || request?.entryName || "this VM",
+                        })
+                        : t("servers.accessRequest.approveBody", {
+                            defaultValue: "{{user}} wants to take over {{entry}}. Allowing will disconnect you.",
+                            user: holderLabel(request?.requester),
+                            entry: request?.holderEntryName || request?.entryName || "this VM",
+                        })}
                 </p>
                 {secondsLeft !== null && (
                     <p className="access-request-timer">

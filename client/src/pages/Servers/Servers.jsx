@@ -165,14 +165,16 @@ export const Servers = () => {
         const requestId = pendingAccessRef.current?.requestId;
         pendingAccessRef.current = null;
         setAccessWaiting(null);
-        if (requestId) deleteRequest(`/connections/access-requests/${requestId}`).catch(() => {});
+        if (requestId) {
+            deleteRequest(`/connections/access-requests/${requestId}?browserId=${encodeURIComponent(getBrowserId())}`).catch(() => {});
+        }
     };
 
     const respondAccessRequest = async (decision) => {
         const requestId = incomingAccessRequest?.requestId;
         if (!requestId) return;
         try {
-            await postRequest(`/connections/access-requests/${requestId}/respond`, { decision });
+            await postRequest(`/connections/access-requests/${requestId}/respond`, { decision, browserId: getBrowserId() });
             setIncomingAccessRequest(null);
             if (decision === "deny") sendToast("Request denied", "The other user was blocked from connecting");
             if (decision === "allow") sendToast("Request allowed", "You will be disconnected; they are taking over");
@@ -303,6 +305,8 @@ export const Servers = () => {
                 };
                 setAccessWaiting({
                     holder: error.holder,
+                    sameAccount: !!error.sameAccount,
+                    holderDevice: error.holderDevice || null,
                     entryName: server?.name,
                     expiresAt: error.expiresAt,
                 });
@@ -599,6 +603,8 @@ export const Servers = () => {
             <AccessWaitingDialog
                 open={!!accessWaiting}
                 holder={accessWaiting?.holder}
+                sameAccount={accessWaiting?.sameAccount}
+                holderDevice={accessWaiting?.holderDevice}
                 entryName={accessWaiting?.entryName}
                 expiresAt={accessWaiting?.expiresAt}
                 onCancel={cancelAccessWait}

@@ -103,6 +103,24 @@ class StateBroadcaster {
         }
     }
 
+    pushWhere(accountId, matches, stateType, data) {
+        for (const conn of this.connections.get(accountId) || []) {
+            if (conn.ws.readyState !== 1 || !matches(conn)) continue;
+            try {
+                conn.ws.send(JSON.stringify({ type: stateType, data }));
+            } catch (error) {
+                logger.error(`StateBroadcaster: failed to push ${stateType}`, { accountId, error: error.message });
+            }
+        }
+    }
+
+    hasConnection(accountId, matches) {
+        for (const conn of this.connections.get(accountId) || []) {
+            if (conn.ws.readyState === 1 && matches(conn)) return true;
+        }
+        return false;
+    }
+
     broadcast(stateType, { accountId, organizationId } = {}) {
         this.resolveAffectedAccounts(accountId, organizationId).then(ids => {
             ids.forEach(id => this.scheduleBroadcast(id, stateType));

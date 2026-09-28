@@ -25,7 +25,7 @@ app.post("/", async (req, res) => {
         const { entryId, identityId, connectionReason, type, directIdentity, tabId, browserId, scriptId, startPath, permissionRequestId } = req.body;
         const ipAddress = req.ip || req.socket?.remoteAddress || 'unknown';
         const userAgent = req.headers['user-agent'] || 'unknown';
-        const result = await createSession(req.user.id, entryId, identityId, connectionReason, type, directIdentity, tabId, browserId, scriptId, startPath, ipAddress, userAgent, permissionRequestId);
+        const result = await createSession(req.user.id, entryId, identityId, connectionReason, type, directIdentity, tabId, browserId, scriptId, startPath, ipAddress, userAgent, permissionRequestId, req.session?.id ?? null);
         
         if (result?.code) {
             const { code, message, ...rest } = result;
@@ -68,7 +68,8 @@ app.get("/access-requests/:id", (req, res) => {
  * @param {string} id.path.required - Access request ID
  */
 app.post("/access-requests/:id/respond", async (req, res) => {
-    const result = await SessionAccessRequest.resolveRequest(req.params.id, req.body?.decision, req.user.id);
+    const actor = { accountId: req.user.id, loginSessionId: req.session?.id ?? null, browserId: req.body?.browserId ?? null };
+    const result = await SessionAccessRequest.resolveRequest(req.params.id, req.body?.decision, actor);
     if (result?.code) {
         const { code, message, ...rest } = result;
         return res.status(code).json({ error: message, ...rest });
@@ -86,7 +87,8 @@ app.post("/access-requests/:id/respond", async (req, res) => {
  * @param {string} id.path.required - Access request ID
  */
 app.delete("/access-requests/:id", (req, res) => {
-    const result = SessionAccessRequest.cancelRequest(req.params.id, req.user.id);
+    const actor = { accountId: req.user.id, loginSessionId: req.session?.id ?? null, browserId: req.query?.browserId ?? null };
+    const result = SessionAccessRequest.cancelRequest(req.params.id, actor);
     if (result?.code) {
         const { code, message, ...rest } = result;
         return res.status(code).json({ error: message, ...rest });
@@ -164,7 +166,7 @@ app.post("/:id/resume", async (req, res) => {
     if (validateSchema(res, resumeSessionValidation, req.body)) return;
     
     const { tabId, browserId } = req.body;
-    const result = await resumeSession(req.user.id, req.params.id, tabId, browserId);
+    const result = await resumeSession(req.user.id, req.params.id, tabId, browserId, req.session?.id ?? null);
     if (result?.code) {
         return res.status(result.code).json({ error: result.message });
     }
@@ -265,7 +267,7 @@ app.post("/:id/duplicate", async (req, res) => {
     const ipAddress = req.ip || req.socket?.remoteAddress || 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
     
-    const result = await duplicateSession(req.user.id, req.params.id, tabId, browserId, ipAddress, userAgent);
+    const result = await duplicateSession(req.user.id, req.params.id, tabId, browserId, ipAddress, userAgent, req.session?.id ?? null);
     if (result?.code) {
         return res.status(result.code).json({ error: result.message });
     }
