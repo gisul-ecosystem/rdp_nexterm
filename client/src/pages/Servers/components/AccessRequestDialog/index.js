@@ -1,1 +1,1 @@
-export { AccessWaitingDialog, AccessApproveDialog } from "./AccessRequestDialog.jsx";
+export { AccessWaitingDialog, AccessApproveDialog, AccessConfirmDialog } from "./AccessRequestDialog.jsx";

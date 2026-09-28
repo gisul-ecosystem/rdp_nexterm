@@ -6,7 +6,7 @@ export const StateStreamContext = createContext({});
 export { STATE_TYPES };
 
 const stateTypes = Object.values(STATE_TYPES).filter(t => t !== "LOGOUT");
-const unbufferedTypes = new Set([STATE_TYPES.HEALTH_LIVE]);
+const unbufferedTypes = new Set([STATE_TYPES.HEALTH_LIVE, STATE_TYPES.ACCESS_REQUEST]);
 
 export const StateStreamProvider = ({ children }) => {
     const { sessionToken } = useContext(UserContext);

@@ -14,7 +14,8 @@ const pending = new Map();
 const skipPermissionCheck = (type, scriptId) =>
     type === "sftp" || type === "ftp" || type === "ftps" || !!scriptId;
 
-const getAllSessionsInternal = () => SessionManager.listActiveSessions();
+// Hibernated sessions keep their connection open, so they still occupy the machine.
+const getAllSessionsInternal = () => SessionManager.listAll();
 
 const DEFAULT_PORTS = { rdp: 3389, vnc: 5900, ssh: 22, telnet: 23 };
 
@@ -36,6 +37,7 @@ const personOf = (source) => ({
     accountId: Number(source.accountId),
     loginSessionId: source.loginSessionId ?? null,
     browserId: source.browserId ?? null,
+    tabId: source.tabId ?? null,
 });
 
 const samePerson = (a, b) => {
@@ -45,6 +47,9 @@ const samePerson = (a, b) => {
     const comparable = (a.loginSessionId && b.loginSessionId) || (a.browserId && b.browserId);
     return !comparable;
 };
+
+// Opening the machine again from the very same tab (reconnect, duplicate) never needs a question.
+const sameTab = (a, b) => !!a.tabId && a.tabId === b.tabId && samePerson(a, b);
 
 // Tabs of the state stream (the channel the popup travels on) that belong to `person` but not to `other`.
 const tabsOf = (person, other = null) => (conn) => {
@@ -58,7 +63,7 @@ const pushTo = (person, other, data) =>
 const isReachable = (person, other) => stateBroadcaster.hasConnection(person.accountId, tabsOf(person, other));
 
 const sessionsOnTarget = async (targetKey) => {
-    const sessions = getAllSessionsInternal().filter((s) => !s.isHibernated);
+    const sessions = getAllSessionsInternal().filter((s) => !s._removing);
     if (!sessions.length) return [];
     const entryIds = [...new Set(sessions.map((s) => Number(s.entryId)))];
     const entries = await Entry.findAll({ where: { id: entryIds }, attributes: ["id", "type", "config"] });
@@ -66,8 +71,8 @@ const sessionsOnTarget = async (targetKey) => {
     return sessions.filter((s) => keyByEntry.get(Number(s.entryId)) === targetKey);
 };
 
-const closeSessionsOf = async (person, targetKey, reason) => {
-    const toClose = (await sessionsOnTarget(targetKey)).filter((s) => samePerson(personOf(s), person));
+const closeSessionsOf = async (person, targetKey, reason, keep = () => false) => {
+    const toClose = (await sessionsOnTarget(targetKey)).filter((s) => samePerson(personOf(s), person) && !keep(s));
     for (const session of toClose) {
         try {
             await SessionManager.remove(session.sessionId, { code: 4015, reason, closeReason: "replaced" });
@@ -80,10 +85,16 @@ const closeSessionsOf = async (person, targetKey, reason) => {
 };
 
 // Windows RDP gives a user one seat per machine: a second login takes the first one over anyway.
-const replaceOwnRdpSessions = async (entry, person, targetKey) => {
+const replaceSameTabRdpSessions = async (entry, person, targetKey) => {
     if (protocolOf(entry) !== "rdp") return;
-    const replaced = await closeSessionsOf(person, targetKey, "Opened in another tab");
-    if (replaced.length) logger.info("Replaced own RDP session on the same machine", { entryId: entry.id, count: replaced.length });
+    const others = (s) => !sameTab(personOf(s), person);
+    const replaced = await closeSessionsOf(person, targetKey, "Opened again in this tab", others);
+    if (replaced.length) logger.info("Replaced RDP session reopened in the same tab", { entryId: entry.id, count: replaced.length });
+};
+
+const moveOwnSessionsHere = async (entry, person, targetKey) => {
+    const moved = await closeSessionsOf(person, targetKey, "Opened in another tab", (s) => sameTab(personOf(s), person));
+    if (moved.length) logger.info("Moved own session to another tab", { entryId: entry.id, count: moved.length });
 };
 
 const BROWSERS = [["Edg/", "Edge"], ["OPR/", "Opera"], ["Firefox/", "Firefox"], ["Chrome/", "Chrome"], ["Safari/", "Safari"]];
@@ -303,23 +314,32 @@ const holderLabel = (request) => request.sameAccount
     ? `another device signed in as ${request.holder?.username || "you"}`
     : request.holder?.username || "another user";
 
-const checkConflict = async ({ entryId, accountId, type, scriptId, permissionRequestId, loginSessionId = null, browserId = null }) => {
+const ownSessionResponse = (entry, ownSessions) => ({
+    code: 409,
+    message: "This VM is already open in another tab or window of this browser",
+    needsTakeoverConfirm: true,
+    hibernated: ownSessions.every((s) => s.isHibernated),
+    // Several people may share SSH/VNC; a Windows desktop has one seat, so a second RDP login always replaces the first.
+    allowAlongside: protocolOf(entry) !== "rdp",
+});
+
+const checkConflict = async ({ entryId, accountId, type, scriptId, permissionRequestId, loginSessionId = null, browserId = null, tabId = null, takeOver = null }) => {
     if (skipPermissionCheck(type, scriptId)) return null;
 
-    const requesterPerson = personOf({ accountId, loginSessionId, browserId });
+    const requesterPerson = personOf({ accountId, loginSessionId, browserId, tabId });
     const entry = await Entry.findByPk(entryId, { attributes: ["id", "type", "config", "organizationId"] });
+    if (!entry) return null;
     const targetKey = targetKeyOf(entry);
 
     if (permissionRequestId) {
         const consumed = consumeApproved(permissionRequestId, requesterPerson, entryId);
         if (consumed.code) return consumed;
-        if (entry) await replaceOwnRdpSessions(entry, requesterPerson, targetKey);
+        if (protocolOf(entry) === "rdp") await moveOwnSessionsHere(entry, requesterPerson, targetKey);
         return null;
     }
 
-    const holders = targetKey
-        ? (await sessionsOnTarget(targetKey)).filter((s) => !samePerson(personOf(s), requesterPerson))
-        : [];
+    const onTarget = (await sessionsOnTarget(targetKey)).filter((s) => !sameTab(personOf(s), requesterPerson));
+    const holders = onTarget.filter((s) => !samePerson(personOf(s), requesterPerson));
 
     // Only someone with Nexterm open can answer; sessions nobody could be asked about are simply taken over.
     const reachable = holders.filter((s) => isReachable(personOf(s), requesterPerson));
@@ -337,8 +357,16 @@ const checkConflict = async ({ entryId, accountId, type, scriptId, permissionReq
                 details: { decision: "unattended_takeover", requesterAccountId: requesterPerson.accountId, holderAccountId: person.accountId },
             });
         }
-        if (unattended.length && entry?.organizationId) stateBroadcaster.broadcast("LIVE_SESSIONS", { organizationId: entry.organizationId });
-        if (entry) await replaceOwnRdpSessions(entry, requesterPerson, targetKey);
+        if (unattended.length && entry.organizationId) stateBroadcaster.broadcast("LIVE_SESSIONS", { organizationId: entry.organizationId });
+
+        // The same person in another tab/window of this browser: ask right here instead of waiting on themselves.
+        const own = onTarget.filter((s) => samePerson(personOf(s), requesterPerson));
+        if (own.length) {
+            const alongside = takeOver === "alongside" && protocolOf(entry) !== "rdp";
+            if (takeOver !== "move" && !alongside) return ownSessionResponse(entry, own);
+            if (takeOver === "move") await moveOwnSessionsHere(entry, requesterPerson, targetKey);
+        }
+        await replaceSameTabRdpSessions(entry, requesterPerson, targetKey);
         return null;
     }
 

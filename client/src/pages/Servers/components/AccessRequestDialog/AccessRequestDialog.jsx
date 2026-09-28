@@ -73,6 +73,36 @@ export const AccessWaitingDialog = ({ open, holder, sameAccount, holderDevice, e
     );
 };
 
+export const AccessConfirmDialog = ({ open, entryName, hibernated, allowAlongside, onMove, onAlongside, onCancel }) => {
+    const { t } = useTranslation();
+
+    return (
+        <DialogProvider open={open} onClose={onCancel}>
+            <div className="access-request-dialog">
+                <h2>{t("servers.accessRequest.confirmTitle", { defaultValue: "Already open" })}</h2>
+                <p>
+                    {hibernated
+                        ? t("servers.accessRequest.confirmBodyHibernated", {
+                            defaultValue: "You have a hibernated session on {{entry}}. Moving it here closes that session.",
+                            entry: entryName || "this VM",
+                        })
+                        : t("servers.accessRequest.confirmBody", {
+                            defaultValue: "{{entry}} is already open in another tab or window of this browser. Moving it here disconnects it there.",
+                            entry: entryName || "This VM",
+                        })}
+                </p>
+                <div className="dialog-actions">
+                    <Button type="secondary" text={t("common.actions.cancel", { defaultValue: "Cancel" })} onClick={onCancel} />
+                    {allowAlongside && (
+                        <Button type="secondary" text={t("servers.accessRequest.openAlongside", { defaultValue: "Open here too" })} onClick={onAlongside} />
+                    )}
+                    <Button type="primary" text={t("servers.accessRequest.moveHere", { defaultValue: "Move it here" })} onClick={onMove} />
+                </div>
+            </div>
+        </DialogProvider>
+    );
+};
+
 export const AccessApproveDialog = ({ open, request, onAllow, onDeny }) => {
     const { t } = useTranslation();
     const secondsLeft = useSecondsLeft(open, request?.expiresAt);

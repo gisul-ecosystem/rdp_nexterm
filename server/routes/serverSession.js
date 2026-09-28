@@ -22,10 +22,10 @@ app.post("/", async (req, res) => {
     if (validateSchema(res, createSessionValidation, req.body)) return;
     
     try {
-        const { entryId, identityId, connectionReason, type, directIdentity, tabId, browserId, scriptId, startPath, permissionRequestId } = req.body;
+        const { entryId, identityId, connectionReason, type, directIdentity, tabId, browserId, scriptId, startPath, permissionRequestId, takeOver } = req.body;
         const ipAddress = req.ip || req.socket?.remoteAddress || 'unknown';
         const userAgent = req.headers['user-agent'] || 'unknown';
-        const result = await createSession(req.user.id, entryId, identityId, connectionReason, type, directIdentity, tabId, browserId, scriptId, startPath, ipAddress, userAgent, permissionRequestId, req.session?.id ?? null);
+        const result = await createSession(req.user.id, entryId, identityId, connectionReason, type, directIdentity, tabId, browserId, scriptId, startPath, ipAddress, userAgent, permissionRequestId, req.session?.id ?? null, takeOver ?? null);
         
         if (result?.code) {
             const { code, message, ...rest } = result;

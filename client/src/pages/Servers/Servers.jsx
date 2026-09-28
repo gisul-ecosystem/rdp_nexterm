@@ -8,7 +8,7 @@ import ViewContainer from "@/pages/Servers/components/ViewContainer";
 import ProxmoxDialog from "@/pages/Servers/components/ProxmoxDialog";
 import SSHConfigImportDialog from "@/pages/Servers/components/SSHConfigImportDialog";
 import ConnectionReasonDialog from "@/pages/Servers/components/ConnectionReasonDialog";
-import { AccessWaitingDialog, AccessApproveDialog } from "@/pages/Servers/components/AccessRequestDialog";
+import { AccessWaitingDialog, AccessConfirmDialog } from "@/pages/Servers/components/AccessRequestDialog";
 import DirectConnectDialog from "@/pages/Servers/components/DirectConnectDialog";
 import FileEditorWindow from "@/common/components/FileEditorWindow";
 import FilePreviewWindow from "@/common/components/FilePreviewWindow";
@@ -33,7 +33,7 @@ export const Servers = () => {
     const [directConnectServer, setDirectConnectServer] = useState(null);
     const [pendingConnection, setPendingConnection] = useState(null);
     const [accessWaiting, setAccessWaiting] = useState(null);
-    const [incomingAccessRequest, setIncomingAccessRequest] = useState(null);
+    const [ownSessionConfirm, setOwnSessionConfirm] = useState(null);
     const [openFileEditors, setOpenFileEditors] = useState([]);
     const [mobileServerListOpen, setMobileServerListOpen] = useState(false);
     const [leftPaneSlot, setLeftPaneSlot] = useState(null);
@@ -141,12 +141,6 @@ export const Servers = () => {
     useEffect(() => registerHandler(STATE_TYPES.ACCESS_REQUEST, (data) => {
         if (!data?.requestId) return;
 
-        if (data.role === "holder") {
-            if (data.status === "pending") setIncomingAccessRequest(data);
-            else setIncomingAccessRequest((current) => current?.requestId === data.requestId ? null : current);
-            return;
-        }
-
         const pending = pendingAccessRef.current;
         if (data.role !== "requester" || pending?.requestId !== data.requestId) return;
 
@@ -170,17 +164,10 @@ export const Servers = () => {
         }
     };
 
-    const respondAccessRequest = async (decision) => {
-        const requestId = incomingAccessRequest?.requestId;
-        if (!requestId) return;
-        try {
-            await postRequest(`/connections/access-requests/${requestId}/respond`, { decision, browserId: getBrowserId() });
-            setIncomingAccessRequest(null);
-            if (decision === "deny") sendToast("Request denied", "The other user was blocked from connecting");
-            if (decision === "allow") sendToast("Request allowed", "You will be disconnected; they are taking over");
-        } catch (error) {
-            sendToast("Error", error?.error || error?.message || "Could not respond to request");
-        }
+    const confirmOwnTakeover = (takeOver) => {
+        const args = ownSessionConfirm?.args;
+        setOwnSessionConfirm(null);
+        if (args) void performConnection(...args, null, takeOver);
     };
 
     const findOrganizationForServer = (serverIdNum, entries, currentOrg = null) => {
@@ -263,7 +250,7 @@ export const Servers = () => {
         initiateConnection({ server: getServerById(server), identity, type: "sftp" });
     };
 
-    const performConnection = async (server, identity, connectionReason = null, type = null, directIdentity = null, scriptId = null, scriptName = null, permissionRequestId = null) => {
+    const performConnection = async (server, identity, connectionReason = null, type = null, directIdentity = null, scriptId = null, scriptName = null, permissionRequestId = null, takeOver = null) => {
         try {
             const payload = {
                 entryId: server.id,
@@ -277,6 +264,7 @@ export const Servers = () => {
             if (directIdentity) payload.directIdentity = directIdentity;
             if (scriptId) payload.scriptId = scriptId;
             if (permissionRequestId) payload.permissionRequestId = permissionRequestId;
+            if (takeOver) payload.takeOver = takeOver;
             const session = await postRequest("/connections", payload);
 
             const organization = findOrganizationForServer(server.id, servers);
@@ -298,6 +286,15 @@ export const Servers = () => {
             setAccessWaiting(null);
             pendingAccessRef.current = null;
         } catch (error) {
+            if (error?.needsTakeoverConfirm) {
+                setOwnSessionConfirm({
+                    args: [server, identity, connectionReason, type, directIdentity, scriptId, scriptName],
+                    entryName: server?.name,
+                    hibernated: !!error.hibernated,
+                    allowAlongside: !!error.allowAlongside,
+                });
+                return;
+            }
             if (error?.needsPermission && error?.requestId) {
                 pendingAccessRef.current = {
                     requestId: error.requestId,
@@ -609,11 +606,14 @@ export const Servers = () => {
                 expiresAt={accessWaiting?.expiresAt}
                 onCancel={cancelAccessWait}
             />
-            <AccessApproveDialog
-                open={!!incomingAccessRequest}
-                request={incomingAccessRequest}
-                onAllow={() => respondAccessRequest("allow")}
-                onDeny={() => respondAccessRequest("deny")}
+            <AccessConfirmDialog
+                open={!!ownSessionConfirm}
+                entryName={ownSessionConfirm?.entryName}
+                hibernated={ownSessionConfirm?.hibernated}
+                allowAlongside={ownSessionConfirm?.allowAlongside}
+                onMove={() => confirmOwnTakeover("move")}
+                onAlongside={() => confirmOwnTakeover("alongside")}
+                onCancel={() => setOwnSessionConfirm(null)}
             />
             {leftPaneSlot && createPortal(
                 <ServerList setServerDialogOpen={(protocol = null) => {

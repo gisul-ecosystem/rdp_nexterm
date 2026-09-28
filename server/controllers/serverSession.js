@@ -55,7 +55,7 @@ const getRequiredConnectPermission = (entry, type, scriptId) => {
     return ENTRY_TYPE_TO_CONNECT_PERMISSION[entryType] || Permission.CONNECT_SSH;
 };
 
-const createSession = async (accountId, entryId, identityId, connectionReason, type = null, directIdentity = null, tabId = null, browserId = null, scriptId = null, startPath = null, ipAddress = null, userAgent = null, permissionRequestId = null, loginSessionId = null) => {
+const createSession = async (accountId, entryId, identityId, connectionReason, type = null, directIdentity = null, tabId = null, browserId = null, scriptId = null, startPath = null, ipAddress = null, userAgent = null, permissionRequestId = null, loginSessionId = null, takeOver = null) => {
     const entry = await Entry.findByPk(entryId);
     if (!entry) {
         return { code: 404, message: "Entry not found" };
@@ -86,6 +86,8 @@ const createSession = async (accountId, entryId, identityId, connectionReason, t
         permissionRequestId,
         loginSessionId,
         browserId,
+        tabId,
+        takeOver,
     });
     if (conflict) return conflict;
 

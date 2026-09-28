@@ -19,6 +19,7 @@ import { UserContext } from "@/common/contexts/UserContext.jsx";
 import Loading from "@/common/components/Loading";
 import { ErrorBoundary } from "@/common/components/ErrorBoundary";
 import ThemeLoader from "@/common/components/ThemeLoader";
+import IncomingAccessRequest from "@/common/components/IncomingAccessRequest";
 
 const PreferencesWrapper = ({ children }) => {
     const { user, login } = useContext(UserContext);
@@ -47,6 +48,7 @@ export default () => {
                                                     <ScriptProvider>
                                                         <TagProvider>
                                                             <SessionProvider>
+                                                                <IncomingAccessRequest />
                                                                 <Suspense fallback={<Loading />}>
                                                                     <Outlet />
                                                                 </Suspense>
