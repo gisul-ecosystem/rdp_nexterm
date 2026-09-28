@@ -77,6 +77,24 @@ app.post("/access-requests/:id/respond", async (req, res) => {
 });
 
 /**
+ * DELETE /connections/access-requests/{id}
+ * @summary Cancel access request
+ * @description The requester stops waiting; the active session owner's prompt is withdrawn.
+ * @tags Connection
+ * @produces application/json
+ * @security BearerAuth
+ * @param {string} id.path.required - Access request ID
+ */
+app.delete("/access-requests/:id", (req, res) => {
+    const result = SessionAccessRequest.cancelRequest(req.params.id, req.user.id);
+    if (result?.code) {
+        const { code, message, ...rest } = result;
+        return res.status(code).json({ error: message, ...rest });
+    }
+    res.json(result);
+});
+
+/**
  * GET /connections
  * @summary Get Connections
  * @description Retrieves all active server connections for the user.

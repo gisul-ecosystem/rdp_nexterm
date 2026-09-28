@@ -56,7 +56,9 @@ const serializeRequest = (req) => ({
     requestId: req.requestId,
     entryId: req.entryId,
     entryName: req.entryName,
+    holderEntryName: req.holderEntryName,
     status: req.status,
+    timedOut: !!req.timedOut,
     requester: req.requester,
     holder: req.holder,
     expiresAt: req.expiresAt,
@@ -75,8 +77,9 @@ const createRequest = async ({
     targetKey,
     type = null,
 }) => {
-    const [entry, requester, holderAccount] = await Promise.all([
+    const [entry, holderEntry, requester, holderAccount] = await Promise.all([
         Entry.findByPk(entryId, { attributes: ["id", "name", "organizationId"] }),
+        Entry.findByPk(holderSession.entryId, { attributes: ["id", "name"] }),
         Account.findByPk(requesterAccountId, { attributes: ACCOUNT_VIEW_ATTRIBUTES }),
         Account.findByPk(holderSession.accountId, { attributes: ACCOUNT_VIEW_ATTRIBUTES }),
     ]);
@@ -88,6 +91,7 @@ const createRequest = async ({
         entryId: Number(entryId),
         targetKey,
         entryName: entry?.name || `Entry ${entryId}`,
+        holderEntryName: holderEntry?.name || entry?.name || `Entry ${entryId}`,
         organizationId: entry?.organizationId || holderSession.organizationId || null,
         type,
         status: "pending",
@@ -142,6 +146,7 @@ const resolveRequest = async (requestId, decision, actorAccountId) => {
     req.timeout = null;
     req.decidedAt = new Date().toISOString();
     req.decision = decision === "timeout" ? "deny" : decision;
+    req.timedOut = decision === "timeout";
     req.status = req.decision === "allow" ? "approved" : "denied";
 
     if (req.status === "approved") {
@@ -189,6 +194,27 @@ const resolveRequest = async (requestId, decision, actorAccountId) => {
     setTimeout(() => pending.delete(requestId), keepMs);
 
     logger.info("Access request resolved", { requestId, decision: req.decision, status: req.status });
+    return { request: payload };
+};
+
+// The requester gave up waiting: close the holder's popup so a late "Allow" cannot disconnect them for nobody.
+const cancelRequest = (requestId, actorAccountId) => {
+    const req = pending.get(requestId);
+    if (!req) return { code: 404, message: "Access request not found" };
+    if (Number(actorAccountId) !== req.requesterAccountId) return { code: 403, message: "Only the requester can cancel" };
+    if (req.status !== "pending") return { code: 409, message: "Access request already resolved", request: serializeRequest(req) };
+
+    if (req.timeout) clearTimeout(req.timeout);
+    req.timeout = null;
+    req.status = "cancelled";
+    req.decidedAt = new Date().toISOString();
+
+    const payload = serializeRequest(req);
+    pushTo(req.holderAccountId, { ...payload, role: "holder" });
+    pushTo(req.requesterAccountId, { ...payload, role: "requester" });
+    setTimeout(() => pending.delete(requestId), 15_000);
+
+    logger.info("Access request cancelled", { requestId });
     return { request: payload };
 };
 
@@ -262,6 +288,7 @@ const checkConflict = async ({ entryId, accountId, type, scriptId, permissionReq
 module.exports = {
     REQUEST_TTL_MS,
     checkConflict,
+    cancelRequest,
     getRequest,
     resolveRequest,
     serializeRequest,

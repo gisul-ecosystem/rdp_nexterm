@@ -156,13 +156,16 @@ export const Servers = () => {
         } else if (data.status === "denied") {
             pendingAccessRef.current = null;
             setAccessWaiting(null);
-            sendToast("Access denied", "The active user denied your connection request");
+            if (data.timedOut) sendToast("No answer", "The active user did not respond in time. Try again later.");
+            else sendToast("Access denied", "The active user denied your connection request");
         }
     }), [registerHandler, sendToast]);
 
     const cancelAccessWait = () => {
+        const requestId = pendingAccessRef.current?.requestId;
         pendingAccessRef.current = null;
         setAccessWaiting(null);
+        if (requestId) deleteRequest(`/connections/access-requests/${requestId}`).catch(() => {});
     };
 
     const respondAccessRequest = async (decision) => {

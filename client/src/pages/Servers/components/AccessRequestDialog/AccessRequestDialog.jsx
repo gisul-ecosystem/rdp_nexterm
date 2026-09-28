@@ -73,7 +73,7 @@ export const AccessApproveDialog = ({ open, request, onAllow, onDeny }) => {
                     {t("servers.accessRequest.approveBody", {
                         defaultValue: "{{user}} wants to take over {{entry}}. Allowing will disconnect you.",
                         user: holderLabel(request?.requester),
-                        entry: request?.entryName || "this VM",
+                        entry: request?.holderEntryName || request?.entryName || "this VM",
                     })}
                 </p>
                 {secondsLeft !== null && (
