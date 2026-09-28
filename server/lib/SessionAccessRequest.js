@@ -101,7 +101,7 @@ const deviceOf = async (person) => {
     if (!person.loginSessionId) return null;
     const login = await Session.findByPk(person.loginSessionId, { attributes: ["ip", "userAgent"] });
     if (!login) return null;
-    return { label: describeDevice(login.userAgent), ip: login.ip || null };
+    return { label: describeDevice(login.userAgent), ip: login.ip ? login.ip.replace(/^::ffff:/, "") : null };
 };
 
 const serializeRequest = (req) => ({
