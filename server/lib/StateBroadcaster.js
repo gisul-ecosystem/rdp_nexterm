@@ -1,8 +1,8 @@
 const OrganizationMember = require("../models/OrganizationMember");
 const logger = require("../utils/logger");
 
-const STATE_TYPES = { ENTRIES: "ENTRIES", IDENTITIES: "IDENTITIES", SNIPPETS: "SNIPPETS", CONNECTIONS: "CONNECTIONS", LIVE_SESSIONS: "LIVE_SESSIONS", SESSION_PRESENCE: "SESSION_PRESENCE", ACCESS_REQUEST: "ACCESS_REQUEST", LOGOUT: "LOGOUT" };
-const BROADCASTABLE_TYPES = [STATE_TYPES.ENTRIES, STATE_TYPES.IDENTITIES, STATE_TYPES.SNIPPETS, STATE_TYPES.CONNECTIONS, STATE_TYPES.LIVE_SESSIONS];
+const STATE_TYPES = { ENTRIES: "ENTRIES", IDENTITIES: "IDENTITIES", SNIPPETS: "SNIPPETS", CONNECTIONS: "CONNECTIONS", LIVE_SESSIONS: "LIVE_SESSIONS", SESSION_PRESENCE: "SESSION_PRESENCE", ACCESS_REQUEST: "ACCESS_REQUEST", HEALTH_ALERTS: "HEALTH_ALERTS", LOGOUT: "LOGOUT" };
+const BROADCASTABLE_TYPES = [STATE_TYPES.ENTRIES, STATE_TYPES.IDENTITIES, STATE_TYPES.SNIPPETS, STATE_TYPES.CONNECTIONS, STATE_TYPES.LIVE_SESSIONS, STATE_TYPES.HEALTH_ALERTS];
 
 class StateBroadcaster {
     constructor() {
@@ -51,6 +51,12 @@ class StateBroadcaster {
                 return require("../controllers/serverSession").getSessions(accountId, tabId, browserId);
             case STATE_TYPES.LIVE_SESSIONS:
                 return require("../controllers/liveSession").listLiveSessions(accountId);
+            case STATE_TYPES.HEALTH_ALERTS: {
+                const { hasSystemPermission } = require("../permissions/engine");
+                const { Permission } = require("../permissions/registry");
+                if (!(await hasSystemPermission(accountId, Permission.SERVER_HEALTH_VIEW))) return [];
+                return require("../utils/healthService").getActiveAlerts();
+            }
             default:
                 return null;
         }

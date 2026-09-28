@@ -148,6 +148,7 @@
       "snippets": "Snippets",
       "audit": "Audit",
       "usage": "Usage",
+      "health": "Server Health",
       "account": "Account",
       "logout": "Logout",
       "collapseTitle": "Collapse Sidebar",
@@ -362,7 +363,9 @@
         "lastSeen": "Last seen alive",
         "closeDetail": "Detail",
         "connectionReason": "Connection reason",
-        "auditId": "Audit entry"
+        "auditId": "Audit entry",
+        "traffic": "Data transferred",
+        "trafficValue": "{{total}} (↓ {{down}} · ↑ {{up}})"
       }
     },
     "status": {
@@ -387,6 +390,234 @@
       "admin_disconnect": "Disconnected by an administrator",
       "ws_close": "Browser closed",
       "ended": "Ended"
+    }
+  },
+  "health": {
+    "page": {
+      "title": "Server Health",
+      "subtitle": "Load, capacity and alerts for the machine running Nexterm",
+      "settings": "Alert settings",
+      "refresh": "Refresh",
+      "collecting": "Collecting the first measurements…",
+      "updated": "Updated {{time}}"
+    },
+    "errors": {
+      "load": "Failed to load server health",
+      "acknowledge": "Failed to acknowledge the alert"
+    },
+    "status": {
+      "ok": "All systems normal",
+      "warning_one": "{{count}} warning",
+      "warning_other": "{{count}} warnings",
+      "critical_one": "{{count}} critical alert",
+      "critical_other": "{{count}} critical alerts",
+      "okHint": "Nothing needs your attention.",
+      "problemHint": "See the alerts below for what is affected."
+    },
+    "host": {
+      "cpus_one": "{{count}} vCPU",
+      "cpus_other": "{{count}} vCPUs",
+      "memory": "{{value}} RAM",
+      "disk": "{{value}} disk",
+      "link": "{{iface}} · {{speed}}",
+      "linkUnknown": "{{iface}} · link speed not set",
+      "version": "Nexterm {{version}}",
+      "uptime": "VM up {{value}}",
+      "engineOnline": "Engine online",
+      "engineOffline": "Engine offline"
+    },
+    "metrics": {
+      "cpu": "CPU",
+      "cpuSub": "Load {{load}} · steal {{steal}}",
+      "memory": "Memory",
+      "memorySub": "{{used}} of {{total}}",
+      "disk": "Disk",
+      "diskSub": "{{used}} of {{total}}",
+      "network": "Network",
+      "networkSub": "↓ {{rx}} · ↑ {{tx}}",
+      "networkOfLink": "{{pct}} of link",
+      "sessions": "Sessions",
+      "sessionsSub_one": "{{count}} user · {{desktops}} desktops",
+      "sessionsSub_other": "{{count}} users · {{desktops}} desktops",
+      "responsiveness": "Responsiveness",
+      "responsivenessSub": "p99 delay · avg {{avg}}",
+      "nexterm": "Nexterm processes",
+      "nextermSub": "Server {{server}} · engine {{engine}}",
+      "last15": "Last 15 minutes"
+    },
+    "capacity": {
+      "title": "Remote desktop capacity",
+      "roomFor_one": "Room for about {{count}} more",
+      "roomFor_other": "Room for about {{count}} more",
+      "full": "At capacity",
+      "ofMax": "{{current}} of ~{{max}} remote desktops in use",
+      "limitedBy": "Limited by {{resource}}",
+      "perSession": "Each remote desktop costs about",
+      "perSessionCpu": "{{value}} CPU",
+      "perSessionMemory": "{{value}} RAM",
+      "perSessionNetwork": "{{value}}",
+      "noData": "Not enough data yet",
+      "noDataHint": "The estimate appears once Nexterm has measured the load while remote desktop sessions were open.",
+      "setLink": "Set the link speed in the alert settings to include bandwidth.",
+      "confidence": {
+        "low": "Rough estimate",
+        "medium": "Fair estimate",
+        "high": "Good estimate"
+      },
+      "confidenceHint": "Based on {{points}} minutes with sessions, up to {{max}} at once.",
+      "resources": {
+        "cpu": "CPU",
+        "memory": "memory",
+        "bandwidth": "network bandwidth"
+      }
+    },
+    "charts": {
+      "title": "History",
+      "ranges": {
+        "1h": "1 hour",
+        "6h": "6 hours",
+        "24h": "24 hours",
+        "7d": "7 days",
+        "30d": "30 days"
+      },
+      "cpu": "CPU",
+      "memory": "Memory",
+      "network": "Network",
+      "sessions": "Sessions",
+      "responsiveness": "Responsiveness",
+      "disk": "Disk I/O",
+      "series": {
+        "cpu": "VM CPU",
+        "steal": "Steal",
+        "nexterm": "Nexterm",
+        "memUsed": "Used",
+        "nextermMem": "Nexterm",
+        "rx": "Download",
+        "tx": "Upload",
+        "sessions": "All sessions",
+        "desktops": "Remote desktops",
+        "users": "Users",
+        "p99": "p99 delay",
+        "mean": "Average delay",
+        "read": "Read",
+        "write": "Write"
+      },
+      "noData": "No data for this period yet",
+      "engineGap": "Engine offline"
+    },
+    "planning": {
+      "title": "Capacity planning",
+      "dailyPeaks": "Daily peaks (30 days)",
+      "peakSessions": "Peak sessions",
+      "peakUsers": "Peak users",
+      "peakCpu": "Peak CPU",
+      "heatmap": "Busiest hours",
+      "heatmapHint": "Average open sessions per hour over the last {{days}} days, in your time zone.",
+      "heatmapCell": "{{day}} {{hour}}:00 — avg {{avg}}, peak {{peak}}",
+      "less": "Less",
+      "more": "More",
+      "noDaily": "Daily peaks appear after the first day of measurements."
+    },
+    "sessions": {
+      "title": "Sessions by load",
+      "empty": "No one is connected right now",
+      "user": "User",
+      "machine": "Machine",
+      "state": "State",
+      "duration": "Duration",
+      "traffic": "Traffic now",
+      "total": "Transferred",
+      "manage": "Manage in VM Usage"
+    },
+    "alerts": {
+      "title": "Alerts",
+      "active": "Active",
+      "history": "History",
+      "none": "No active alerts",
+      "noHistory": "No alerts so far",
+      "acknowledge": "Acknowledge",
+      "acknowledged": "Acknowledged by {{user}}",
+      "acknowledgedToast": "Alert acknowledged",
+      "since": "since {{time}}",
+      "lasted": "lasted {{duration}}",
+      "value": "Now {{value}} · threshold {{threshold}}",
+      "peak": "worst {{value}}",
+      "showMore": "Show more",
+      "severity": {
+        "warning": "Warning",
+        "critical": "Critical"
+      },
+      "resolved": "Resolved",
+      "banner": "{{rule}}: {{value}}",
+      "bannerMore": "and {{count}} more",
+      "view": "View",
+      "dismiss": "Dismiss"
+    },
+    "rules": {
+      "cpu": "CPU usage",
+      "memory": "Memory usage",
+      "disk": "Disk usage",
+      "bandwidth": "Network bandwidth",
+      "steal": "CPU steal (hypervisor busy)",
+      "lag": "Server response delay",
+      "capacity": "Free remote desktop capacity",
+      "engine": "Connection engine offline"
+    },
+    "ruleHints": {
+      "cpu": "Share of all vCPUs in use.",
+      "memory": "RAM in use, excluding cache.",
+      "disk": "Space used on the disk holding Nexterm's data.",
+      "bandwidth": "Traffic on the main network interface compared with the link speed.",
+      "steal": "CPU time the hypervisor gave to other VMs. High values mean the physical host is overloaded.",
+      "lag": "How long Nexterm takes to react (99th percentile).",
+      "capacity": "Alerts when fewer remote desktops than this can still be added.",
+      "engine": "Alerts when the engine that runs connections has been offline this many seconds."
+    },
+    "settings": {
+      "title": "Server health settings",
+      "general": "General",
+      "serverLabel": "Server name in notifications",
+      "serverLabelPlaceholder": "Nexterm",
+      "linkMbps": "Link speed (Mbit/s)",
+      "linkMbpsHint": "Used for the bandwidth alert and the capacity estimate.",
+      "linkDetected": "Detected: {{value}} Mbit/s",
+      "linkNotDetected": "The network card does not report its speed. Ask your provider or enter the plan's bandwidth.",
+      "primaryInterface": "Main network interface",
+      "primaryAuto": "Automatic ({{iface}})",
+      "retentionDays": "Keep detailed history",
+      "days": "days",
+      "rules": "Alert rules",
+      "rule": "Rule",
+      "warning": "Warning",
+      "critical": "Critical",
+      "forMinutes": "For",
+      "minutes": "min",
+      "seconds": "s",
+      "notifications": "Notifications",
+      "notificationsHint": "Alerts always appear in Nexterm. Optionally send them to a chat channel or any system that accepts webhooks.",
+      "webhookEnabled": "Send alerts to a webhook",
+      "webhookFormat": "Format",
+      "formats": {
+        "teams": "Microsoft Teams (Workflows)",
+        "slack": "Slack",
+        "googlechat": "Google Chat",
+        "generic": "Generic JSON"
+      },
+      "webhookUrl": "Webhook URL",
+      "webhookUrlSaved": "Saved ({{host}}), enter a new URL to replace it",
+      "clearWebhook": "Remove saved URL",
+      "notifyResolved": "Also notify when an alert resolves",
+      "test": "Send test",
+      "testSent": "Test notification sent",
+      "lastSent": "Last notification sent {{time}}",
+      "lastError": "Last notification failed: {{error}}",
+      "save": "Save",
+      "saved": "Settings saved",
+      "saveFailed": "Failed to save settings",
+      "readOnly": "You can view these settings but not change them."
+    },
+    "units": {
+      "perSecond": "{{value}}/s"
     }
   },
   "snippets": {

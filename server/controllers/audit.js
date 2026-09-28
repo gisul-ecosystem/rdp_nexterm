@@ -327,13 +327,14 @@ const endSessionDetails = (details, endAt, closeReason, fallbackStart) => {
     };
 };
 
-const recordSessionEnd = async (auditLogId, closeReason, closeDetail = null) => {
+const recordSessionEnd = async (auditLogId, closeReason, closeDetail = null, traffic = null) => {
     if (!auditLogId) return;
     try {
         const auditLog = await AuditLog.findByPk(auditLogId);
         if (!auditLog || auditLog.details?.logoutAt) return;
         const details = endSessionDetails(auditLog.details || {}, new Date(), closeReason, auditLog.timestamp);
         if (closeDetail) details.closeDetail = closeDetail;
+        if (traffic?.trafficInBytes || traffic?.trafficOutBytes) Object.assign(details, traffic);
         await AuditLog.update({ details }, { where: { id: auditLogId } });
     } catch (error) {
         logger.error("Error recording session end", { error: error.message, auditLogId });

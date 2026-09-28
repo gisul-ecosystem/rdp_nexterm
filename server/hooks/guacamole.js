@@ -63,6 +63,7 @@ const handleGuacJoin = async (ws, sessionId, ctx, pinnedMonitor = null) => {
         connectionSettings: masterClient.connectionSettings,
         existingSocket: joinSocket,
         onData: (data) => {
+            SessionManager.addTraffic(sessionId, 0, data.length);
             try {
                 if (ws.readyState === ws.OPEN) ws.send(data, { binary: false, mask: false });
             } catch {
@@ -97,6 +98,7 @@ const handleGuacJoin = async (ws, sessionId, ctx, pinnedMonitor = null) => {
 
     ws.on("message", (msg) => {
         const msgStr = msg.toString();
+        SessionManager.addTraffic(sessionId, msg.length, 0);
 
         if (isShared && !canWrite()) return;
 

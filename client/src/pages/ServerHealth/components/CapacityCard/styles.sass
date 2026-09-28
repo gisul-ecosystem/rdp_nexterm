@@ -1,0 +1,142 @@
+@use "@/common/styles/colors"
+
+.health-capacity
+  display: flex
+  flex-direction: column
+  gap: 1rem
+
+  .health-card-header
+    margin-bottom: 0
+
+  .health-capacity-confidence
+    padding: 0.2rem 0.55rem
+    border-radius: 999px
+    font-size: 0.72rem
+    font-weight: 600
+    cursor: help
+    color: colors.$subtext
+    background-color: colors.$dark-gray
+
+  .health-capacity-confidence--medium
+    color: colors.$primary
+    background-color: colors.$primary-opacity
+
+  .health-capacity-confidence--high
+    color: colors.$success
+    background-color: colors.$success-opacity
+
+  .health-capacity-headline
+    display: flex
+    flex-direction: column
+    gap: 0.2rem
+
+  .health-capacity-big
+    font-size: 1.5rem
+    font-weight: 700
+    color: var(--level-color)
+
+  .health-capacity-sub
+    font-size: 0.85rem
+    color: colors.$subtext
+
+  .health-capacity-bar
+    height: 0.5rem
+    border-radius: 999px
+    background-color: colors.$gray
+    overflow: hidden
+
+    div
+      height: 100%
+      border-radius: inherit
+      background-color: var(--level-color)
+      transition: width 0.6s ease
+
+  .health-capacity-resources
+    display: flex
+    flex-direction: column
+    gap: 0.45rem
+
+  .health-capacity-limited
+    font-size: 0.8rem
+    font-weight: 600
+    color: colors.$white
+    margin-bottom: 0.1rem
+
+  .health-capacity-resource
+    display: grid
+    grid-template-columns: 8.5rem minmax(0, 1fr) 3rem
+    align-items: center
+    gap: 0.625rem
+    font-size: 0.8rem
+    color: colors.$subtext
+
+    &.is-bottleneck
+      color: colors.$white
+
+      .health-capacity-resource-track div
+        background-color: var(--level-color)
+
+  .health-capacity-resource-name
+    white-space: nowrap
+    overflow: hidden
+    text-overflow: ellipsis
+
+    &::first-letter
+      text-transform: uppercase
+
+  .health-capacity-resource-track
+    height: 0.375rem
+    border-radius: 999px
+    background-color: colors.$dark-gray
+    overflow: hidden
+
+    div
+      height: 100%
+      border-radius: inherit
+      background-color: colors.$gray
+      transition: width 0.6s ease
+
+  .health-capacity-resource-value
+    text-align: right
+    font-variant-numeric: tabular-nums
+
+  .health-capacity-costs
+    display: flex
+    flex-direction: column
+    gap: 0.4rem
+    padding-top: 0.875rem
+    border-top: 1px solid colors.$dark-gray
+    font-size: 0.8rem
+    color: colors.$subtext
+
+    & > div
+      display: flex
+      flex-wrap: wrap
+      gap: 0.4rem
+
+  .health-capacity-cost
+    padding: 0.2rem 0.55rem
+    border-radius: 0.375rem
+    background-color: colors.$dark-gray
+    color: colors.$white
+    font-variant-numeric: tabular-nums
+
+  .health-capacity-note
+    display: flex
+    align-items: center
+    gap: 0.5rem
+    padding: 0.55rem 0.75rem
+    border-radius: 0.5rem
+    font-size: 0.8rem
+    color: colors.$warning
+    background-color: colors.$warning-opacity
+
+    button
+      padding: 0
+      border: none
+      background: none
+      color: inherit
+      font: inherit
+      text-align: left
+      text-decoration: underline
+      cursor: pointer

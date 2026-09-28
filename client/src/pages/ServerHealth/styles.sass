@@ -1,0 +1,145 @@
+@use "@/common/styles/colors"
+@use "@/common/styles/breakpoints"
+
+.health-page
+  background-color: colors.$background
+  height: 100%
+  display: flex
+  flex-direction: column
+  overflow: hidden
+  min-width: 0
+
+  .health-updated
+    font-size: 0.8rem
+    color: colors.$subtext
+    white-space: nowrap
+    font-variant-numeric: tabular-nums
+
+    @media (max-width: breakpoints.$mobile)
+      display: none
+
+  .health-content
+    display: flex
+    flex-direction: column
+    gap: 1.25rem
+    padding: 2rem
+    overflow-y: auto
+    overflow-x: hidden
+    flex: 1
+    min-width: 0
+
+    @media (max-width: breakpoints.$tablet)
+      padding: 1.5rem
+      gap: 1rem
+
+    @media (max-width: breakpoints.$mobile)
+      padding: 1rem
+      gap: 0.875rem
+
+    & > *
+      min-width: 0
+
+  .health-split
+    display: grid
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr)
+    gap: 1.25rem
+
+    @media (max-width: breakpoints.$tablet)
+      grid-template-columns: minmax(0, 1fr)
+      gap: 1rem
+
+  .health-collecting
+    display: flex
+    align-items: center
+    gap: 0.75rem
+    padding: 1.25rem 1.5rem
+    border-radius: 0.75rem
+    border: 1px dashed colors.$gray
+    color: colors.$subtext
+    font-size: 0.9rem
+
+  .health-collecting-dot
+    width: 0.625rem
+    height: 0.625rem
+    border-radius: 50%
+    background-color: colors.$primary
+    animation: healthPulse 1.4s ease-in-out infinite
+
+.health-card
+  background-color: colors.$lighter-background
+  border: 1px solid colors.$dark-gray
+  border-radius: 0.75rem
+  box-shadow: colors.$shadow-lg
+  padding: 1.25rem
+  min-width: 0
+
+  @media (max-width: breakpoints.$mobile)
+    padding: 1rem
+
+  .health-card-header
+    display: flex
+    align-items: center
+    justify-content: space-between
+    gap: 0.75rem
+    margin-bottom: 1rem
+    flex-wrap: wrap
+
+  .health-card-title
+    display: flex
+    align-items: center
+    gap: 0.5rem
+    margin: 0
+    font-size: 1rem
+    font-weight: 600
+    color: colors.$white
+
+    svg
+      color: colors.$primary
+      flex-shrink: 0
+
+  .health-card-hint
+    margin: 0.25rem 0 0
+    font-size: 0.8rem
+    color: colors.$subtext
+
+  .health-empty
+    display: flex
+    flex-direction: column
+    align-items: center
+    justify-content: center
+    gap: 0.5rem
+    padding: 2rem 1rem
+    text-align: center
+    color: colors.$subtext
+    font-size: 0.875rem
+
+    svg
+      opacity: 0.5
+
+    strong
+      color: colors.$white
+      font-weight: 600
+
+.health-level-ok
+  --level-color: var(--success)
+  --level-soft: var(--success-opacity)
+
+.health-level-warning
+  --level-color: var(--warning)
+  --level-soft: var(--warning-opacity)
+
+.health-level-critical
+  --level-color: var(--error)
+  --level-soft: var(--error-opacity)
+
+.health-level-neutral
+  --level-color: var(--primary)
+  --level-soft: var(--primary-opacity)
+
+@keyframes healthPulse
+  0%, 100%
+    opacity: 1
+    transform: scale(1)
+  50%
+    opacity: 0.4
+    transform: scale(0.8)

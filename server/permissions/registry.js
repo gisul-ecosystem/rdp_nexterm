@@ -19,6 +19,8 @@ const Permission = Object.freeze({
     SETTINGS_MONITORING: "settings.monitoring",
     SETTINGS_BACKUP: "settings.backup",
     SETTINGS_AI: "settings.ai",
+    SERVER_HEALTH_VIEW: "server_health.view",
+    SETTINGS_SERVER_HEALTH: "settings.server_health",
 
     RESOURCES_MANAGE: "resources.manage",
     IDENTITIES_MANAGE: "identities.manage",
@@ -78,6 +80,8 @@ const PERMISSIONS = [
     { id: P.SETTINGS_MONITORING, scopes: [SYSTEM], category: "settings", label: "Monitoring", description: "Configure global monitoring settings." },
     { id: P.SETTINGS_BACKUP, scopes: [SYSTEM], category: "settings", label: "Backups", description: "Create, restore, export and import backups.", dangerous: true },
     { id: P.SETTINGS_AI, scopes: [SYSTEM], category: "settings", label: "AI Settings", description: "Configure the AI assistant integration." },
+    { id: P.SERVER_HEALTH_VIEW, scopes: [SYSTEM], category: "settings", label: "View Server Health", description: "See the Nexterm server's load, capacity, live session traffic and alerts." },
+    { id: P.SETTINGS_SERVER_HEALTH, scopes: [SYSTEM], category: "settings", label: "Server Health Alerts", description: "Change alert thresholds, link speed and the alert webhook." },
 
     { id: P.RESOURCES_MANAGE, scopes: BOTH, category: "resources", default: true, label: "Manage Resources", description: "Create, edit and delete servers and folders." },
     { id: P.IDENTITIES_MANAGE, scopes: BOTH, category: "resources", default: true, label: "Manage Identities", description: "Create, edit and delete identities." },

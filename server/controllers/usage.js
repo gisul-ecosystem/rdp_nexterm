@@ -89,6 +89,8 @@ const toSessionRow = (log, liveByAuditId, names, now) => {
         connectionReason: log.reason || details.connectionReason || null,
         ipAddress: log.ipAddress,
         userAgent: log.userAgent,
+        trafficInBytes: details.trafficInBytes ?? null,
+        trafficOutBytes: details.trafficOutBytes ?? null,
     };
 };
 
@@ -285,4 +287,7 @@ const disconnectSession = async (accountId, sessionId) => {
     return { message: "Session disconnected" };
 };
 
-module.exports = { listSessions, exportSessionsCsv, listFilterOptions, listLiveSessions, disconnectSession };
+module.exports = {
+    listSessions, exportSessionsCsv, listFilterOptions, listLiveSessions, disconnectSession,
+    loadNames, collectIds, liveState, protocolOfEntry,
+};

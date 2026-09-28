@@ -1,0 +1,87 @@
+@use "../../styles/colors" as *
+
+.health-alert-banner
+  display: flex
+  align-items: center
+  gap: 0.75rem
+  padding: 0.5rem 1rem
+  z-index: 1000
+  background-color: $warning-opacity
+  border-bottom: 1px solid $warning
+  animation: health-banner-in 0.3s ease-out
+
+  &--critical
+    background-color: $error-opacity
+    border-bottom-color: $error
+
+    .health-alert-banner__icon
+      color: $error
+
+  &__icon
+    width: 1.25rem
+    height: 1.25rem
+    flex-shrink: 0
+    color: $warning
+
+  &__content
+    flex: 1
+    display: flex
+    flex-wrap: wrap
+    align-items: center
+    gap: 0.25rem 0.5rem
+    min-width: 0
+
+  &__title
+    color: $white
+    font-size: 0.85rem
+    font-weight: 600
+
+  &__text
+    color: $subtext
+    font-size: 0.8rem
+
+  &__action
+    padding: 0.3rem 0.75rem
+    border: 1px solid $gray
+    border-radius: 0.4rem
+    background: transparent
+    color: $white
+    font-size: 0.8rem
+    font-weight: 600
+    cursor: pointer
+    transition: background-color 0.2s
+
+    &:hover
+      background-color: $dark-gray
+
+  &__close
+    display: flex
+    padding: 0.25rem
+    border: none
+    background: transparent
+    color: $subtext
+    cursor: pointer
+
+    svg
+      width: 1rem
+      height: 1rem
+
+    &:hover
+      color: $white
+
+@keyframes health-banner-in
+  0%
+    opacity: 0
+    transform: translateY(-100%)
+  100%
+    opacity: 1
+    transform: translateY(0)
+
+@media (max-width: 768px)
+  .health-alert-banner
+    padding: 0.5rem 0.75rem
+
+    &__content
+      flex-direction: column
+      align-items: flex-start
+      gap: 0.125rem

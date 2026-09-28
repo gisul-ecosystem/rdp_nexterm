@@ -21,6 +21,7 @@ const Snippets = lazy(() => import("@/pages/Snippets"));
 const Monitoring = lazy(() => import("@/pages/Monitoring"));
 const Audit = lazy(() => import("@/pages/Audit"));
 const Usage = lazy(() => import("@/pages/Usage"));
+const ServerHealth = lazy(() => import("@/pages/ServerHealth"));
 const Popout = lazy(() => import("@/pages/Popout"));
 const Share = lazy(() => import("@/pages/Share"));
 const Tunnel = lazy(() => import("@/pages/Tunnel"));
@@ -56,6 +57,7 @@ const App = () => {
                 { path: "/monitoring/:serverId/:tab", element: <Monitoring /> },
                 { path: "/audit", element: <Audit /> },
                 { path: "/usage", element: <Usage /> },
+                { path: "/health", element: <ServerHealth /> },
                 { path: "/snippets", element: <Snippets /> }
             ],
         },

@@ -4,6 +4,7 @@ import { mdiChevronRight, mdiInformationOutline, mdiAccountCircleOutline, mdiMon
 import { useTranslation } from "react-i18next";
 import PaginatedTable from "@/common/components/PaginatedTable";
 import { formatDuration, formatDateTime, userName, machineName, browserName, reasonBadge } from "../../usageFormat.js";
+import { formatBytes } from "@/common/utils/healthFormat.js";
 import "./styles.sass";
 
 const DateCell = ({ value, fallback }) => {
@@ -28,10 +29,16 @@ const EndBadge = ({ row }) => {
 const Details = ({ row }) => {
     const { t } = useTranslation();
     const lastSeen = formatDateTime(row.lastSeenAt);
+    const hasTraffic = row.trafficInBytes != null || row.trafficOutBytes != null;
     const items = [
         [t("usage.table.details.ipAddress"), row.ipAddress],
         [t("usage.table.details.browser"), browserName(row.userAgent)],
         [t("usage.table.details.lastSeen"), lastSeen && `${lastSeen.date} ${lastSeen.time}`],
+        [t("usage.table.details.traffic"), hasTraffic && t("usage.table.details.trafficValue", {
+            total: formatBytes((row.trafficInBytes || 0) + (row.trafficOutBytes || 0)),
+            down: formatBytes(row.trafficOutBytes || 0),
+            up: formatBytes(row.trafficInBytes || 0),
+        })],
         [t("usage.table.details.closeDetail"), row.closeDetail],
         [t("usage.table.details.connectionReason"), row.connectionReason],
         [t("usage.table.details.auditId"), `#${row.id}`],

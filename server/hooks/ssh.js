@@ -11,6 +11,7 @@ const bindHandlers = (ws, conn, sessionId, config, isShared, canWrite) => {
 
     const msgHandler = (data) => {
         if (isShared && !canWrite()) return;
+        SessionManager.addTraffic(sessionId, data.length, 0);
         const msg = data.toString();
 
         if (scriptLayer && msg.startsWith(SCRIPT_MAGIC)) return;
@@ -31,7 +32,9 @@ const bindHandlers = (ws, conn, sessionId, config, isShared, canWrite) => {
 
     const dataHandler = (data) => {
         if (scriptLayer?.suppressOutput) return;
-        ws.readyState === ws.OPEN && ws.send(data.toString());
+        if (ws.readyState !== ws.OPEN) return;
+        SessionManager.addTraffic(sessionId, 0, data.length);
+        ws.send(data.toString());
     };
     dataSocket.on("data", dataHandler);
 

@@ -29,6 +29,8 @@ module.exports.create = (accountId, entryId, configuration, connectionReason = n
         participants: new Map(),
         shareId: null,
         shareWritable: false,
+        bytesIn: 0,
+        bytesOut: 0,
     };
     sessions.set(sessionId, session);
     logger.info(`Session created`, { sessionId, accountId, entryId, organizationId });
@@ -446,10 +448,19 @@ module.exports.remove = async (sessionId, options = {}) => {
     const { accountId, organizationId } = session;
     sessions.delete(sessionId);
     logger.info("Session removed", { sessionId, closeReason });
-    await require("../controllers/audit").recordSessionEnd(session.auditLogId, closeReason, closeDetail);
+    await require("../controllers/audit").recordSessionEnd(session.auditLogId, closeReason, closeDetail,
+        { trafficInBytes: session.bytesIn, trafficOutBytes: session.bytesOut });
     stateBroadcaster.broadcast("CONNECTIONS", { accountId });
     if (organizationId) stateBroadcaster.broadcast("LIVE_SESSIONS", { organizationId });
     return true;
+};
+
+// Bytes between browsers and the server for this session (in = from browsers, out = to browsers).
+module.exports.addTraffic = (sessionId, bytesIn, bytesOut) => {
+    const session = sessions.get(sessionId);
+    if (!session) return;
+    session.bytesIn += bytesIn;
+    session.bytesOut += bytesOut;
 };
 
 module.exports.updateActivity = (sessionId) => {

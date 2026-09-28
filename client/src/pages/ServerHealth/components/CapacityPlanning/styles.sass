@@ -1,0 +1,69 @@
+@use "@/common/styles/colors"
+@use "@/common/styles/breakpoints"
+
+.health-planning-grid
+  display: grid
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr)
+  gap: 1rem
+
+  @media (max-width: breakpoints.$tablet)
+    grid-template-columns: minmax(0, 1fr)
+
+.health-planning-chart
+  position: relative
+  height: 16rem
+
+.health-heatmap
+  display: flex
+  flex-direction: column
+  gap: 0.75rem
+
+  .health-heatmap-grid
+    display: grid
+    grid-template-columns: 2.5rem repeat(24, minmax(0, 1fr))
+    gap: 3px
+    align-items: center
+
+  .health-heatmap-hour
+    font-size: 0.65rem
+    color: colors.$subtext
+    text-align: left
+    font-variant-numeric: tabular-nums
+
+  .health-heatmap-day
+    font-size: 0.72rem
+    color: colors.$subtext
+
+  .health-heatmap-legend
+    display: flex
+    align-items: center
+    justify-content: flex-end
+    gap: 3px
+    font-size: 0.7rem
+    color: colors.$subtext
+
+    span:first-child
+      margin-right: 0.25rem
+
+    span:last-child
+      margin-left: 0.25rem
+
+    .health-heatmap-cell
+      width: 0.8rem
+
+.health-heatmap-cell
+  aspect-ratio: 1
+  border-radius: 3px
+  background-color: color-mix(in srgb, var(--primary) calc(var(--intensity, 0) * 100%), transparent)
+  outline: 1px solid colors.$dark-gray
+  transition: transform 0.15s
+
+  &:hover
+    transform: scale(1.25)
+
+  &.is-empty
+    background-color: transparent
+    outline-style: dashed
+
+    &:hover
+      transform: none

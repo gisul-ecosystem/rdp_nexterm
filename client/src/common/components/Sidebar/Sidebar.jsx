@@ -17,6 +17,7 @@ import { openExternalUrl } from "@/common/utils/TauriUtil.js";
 import { usePreferences } from "@/common/contexts/PreferencesContext.jsx";
 import { getServers, getActiveServerId, getServerDisplayName, switchServer, removeServer } from "@/common/utils/ConnectorServers.js";
 import { getAvatarLabel } from "@/common/utils/avatar.js";
+import { useHealthAlerts } from "@/common/hooks/useHealthAlerts.js";
 
 export const Sidebar = ({ onToggleCollapse }) => {
     const { t } = useTranslation();
@@ -47,6 +48,11 @@ export const Sidebar = ({ onToggleCollapse }) => {
     }, []);
 
     const navigation = getSidebarNavigation(t).filter(item => !item.permission || hasPermission(item.permission));
+    const healthAlerts = useHealthAlerts();
+    const healthBadge = healthAlerts.length > 0 && {
+        count: healthAlerts.length,
+        severity: healthAlerts.some(a => a.severity === "critical") ? "critical" : "warning",
+    };
 
     return (<>
         <div className="sidebar">
@@ -65,7 +71,12 @@ export const Sidebar = ({ onToggleCollapse }) => {
                 <nav>
                     {navigation.map((item, i) => (
                         <Tooltip key={i} text={item.title}>
-                            <div onClick={() => navigate(item.path)} className={`nav-item${location.pathname.startsWith(item.path) ? " nav-item-active" : ""}`}><Icon path={item.icon} /></div>
+                            <div onClick={() => navigate(item.path)} className={`nav-item${location.pathname.startsWith(item.path) ? " nav-item-active" : ""}`}>
+                                <Icon path={item.icon} />
+                                {item.key === "health" && healthBadge && (
+                                    <span className={`nav-item-badge nav-item-badge--${healthBadge.severity}`}>{healthBadge.count}</span>
+                                )}
+                            </div>
                         </Tooltip>
                     ))}
                 </nav>

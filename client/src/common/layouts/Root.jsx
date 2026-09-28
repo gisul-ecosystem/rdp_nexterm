@@ -21,6 +21,7 @@ import Loading from "@/common/components/Loading";
 import { ErrorBoundary } from "@/common/components/ErrorBoundary";
 import TitleBar from "@/common/components/TitleBar";
 import ConnectionErrorBanner from "@/common/components/ConnectionErrorBanner";
+import HealthAlertBanner from "@/common/components/HealthAlertBanner";
 import { waitForTauri } from "@/common/utils/TauriUtil.js";
 import MobileNav from "@/common/components/MobileNav";
 import ThemeLoader from "@/common/components/ThemeLoader";
@@ -101,6 +102,7 @@ const AppContent = () => {
                                                     <div className="app-wrapper">
                                                         <TitleBar showTabs />
                                                         <ConnectionErrorBanner />
+                                                        <HealthAlertBanner />
                                                         <div className="content-wrapper">
                                                             <div
                                                                 className={`left-pane${isLeftPaneCollapsed ? " collapsed" : ""}${isLeftPaneVisible ? " open" : ""}`}

@@ -16,6 +16,7 @@ const monitoringService = require("./utils/monitoringService");
 const pveMonitoringService = require("./utils/pveMonitoringService");
 const integrationSyncService = require("./utils/integrationSyncService");
 const recordingService = require("./utils/recordingService");
+const healthService = require("./utils/healthService");
 const { generateOpenAPISpec } = require("./openapi");
 const { requirePermission } = require("./middlewares/permission");
 const { Permission } = require("./permissions/registry");
@@ -90,6 +91,7 @@ app.use("/api/monitoring", authenticate, require("./routes/monitoring"));
 app.use("/api/integrations", authenticate, require("./routes/integration"));
 app.use("/api/audit", authenticate, require("./routes/audit"));
 app.use("/api/usage", authenticate, requirePermission(Permission.AUDIT_VIEW), require("./routes/usage"));
+app.use("/api/health", authenticate, requirePermission(Permission.SERVER_HEALTH_VIEW), require("./routes/health"));
 app.use("/api/identities", authenticate, require("./routes/identity"));
 app.use("/api/snippets", authenticate, require("./routes/snippet"));
 app.use("/api/organizations", authenticate, require("./routes/organization"));
@@ -145,6 +147,8 @@ db.authenticate()
         integrationSyncService.start();
 
         recordingService.start();
+
+        await healthService.start();
 
         startSourceSyncService();
 
@@ -207,6 +211,7 @@ const shutdown = async () => {
     pveMonitoringService.stop();
     integrationSyncService.stop();
     recordingService.stop();
+    await healthService.stop();
     stopStatusChecker();
     stopSourceSyncService();
     backupService.stop();

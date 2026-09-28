@@ -67,6 +67,7 @@
       border-radius: 1rem
       transition: all 0.2s
       cursor: pointer
+      position: relative
 
       svg
         width: 2.5rem
@@ -83,6 +84,31 @@
       &.nav-item-disabled
         opacity: 0.5
         cursor: not-allowed
+
+      .nav-item-badge
+        position: absolute
+        top: 0.35rem
+        right: 0.35rem
+        min-width: 1.15rem
+        height: 1.15rem
+        padding: 0 0.3rem
+        display: flex
+        align-items: center
+        justify-content: center
+        border-radius: 0.6rem
+        border: 2px solid colors.$lighter-background
+        color: #fff
+        font-size: 0.65rem
+        font-weight: 700
+        line-height: 1
+        box-sizing: content-box
+
+        &--warning
+          background-color: colors.$warning
+
+        &--critical
+          background-color: colors.$error
+          animation: nav-badge-pulse 2s ease-in-out infinite
 
   .sidebar-bottom
     display: flex
@@ -268,3 +294,9 @@
     text-transform: uppercase
     letter-spacing: 0.04em
     padding: 0.375rem 0.75rem 0.25rem
+
+@keyframes nav-badge-pulse
+  0%, 100%
+    box-shadow: 0 0 0 0 colors.$error-opacity
+  50%
+    box-shadow: 0 0 0 0.35rem transparent
