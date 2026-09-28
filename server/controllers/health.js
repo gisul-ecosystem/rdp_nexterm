@@ -148,7 +148,7 @@ const acknowledgeAlert = async (accountId, id) => {
     if (alert.status !== "active") return { code: 409, message: "Alert is already resolved" };
     if (alert.acknowledgedAt) return { message: "Alert already acknowledged" };
     const acknowledgedAt = new Date();
-    await alert.update({ acknowledgedAt, acknowledgedBy: accountId });
+    await HealthAlert.update({ acknowledgedAt, acknowledgedBy: accountId }, { where: { id } });
     healthService.markAcknowledged(id, acknowledgedAt, accountId);
     await healthService.pushActiveAlerts();
     return { message: "Alert acknowledged" };

@@ -45,10 +45,11 @@ const evaluator = new AlertEvaluator({
 });
 
 const loadSettings = async () => {
+    // Queries are raw by default (utils/database.js), so JSON columns arrive as strings.
     let row = await HealthSettings.findOne({ order: [["id", "ASC"]] });
-    if (!row) row = await HealthSettings.create({});
-    settingsCache = row.get({ plain: true });
-    settingsCache.rules = row.rules || {};
+    if (!row) row = (await HealthSettings.create({})).get({ plain: true });
+    const rules = typeof row.rules === "string" ? JSON.parse(row.rules) : row.rules;
+    settingsCache = { ...row, rules: rules || {} };
     return settingsCache;
 };
 
@@ -202,7 +203,7 @@ const updateDaily = async (minute) => {
         });
         return;
     }
-    await row.update({
+    await HealthDaily.update({
         peakSessions: Math.max(row.peakSessions, minute.sessions),
         peakUsers: Math.max(row.peakUsers, minute.users),
         avgCpu: (row.avgCpu * row.minutes + minute.cpu) / (row.minutes + 1),
@@ -211,7 +212,7 @@ const updateDaily = async (minute) => {
         peakNetMbps: Math.max(row.peakNetMbps, minute.primaryMbpsMax),
         peakLagMs: Math.max(row.peakLagMs, minute.lagP99Ms),
         minutes: row.minutes + 1,
-    });
+    }, { where: { day } });
 };
 
 const flushMinute = async () => {
@@ -318,6 +319,7 @@ module.exports = {
     start,
     stop,
     getSettings,
+    updateDaily,
     loadSettings,
     decryptWebhookUrl,
     encryptWebhookUrl,
