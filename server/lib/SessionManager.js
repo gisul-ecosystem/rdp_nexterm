@@ -122,11 +122,13 @@ module.exports.onMasterConnectionClosed = (sessionId, reason = "closed") => {
     const session = module.exports.get(sessionId);
     if (!session) return;
     logger.info(`Master connection ${reason}, terminating session`, { sessionId });
+    // With a master connection the session was up, so the far end (e.g. Windows taking the seat) ended it.
+    const closeReason = session.masterConnection ? "remote_closed" : "connect_failed";
     if (reason.startsWith("error:")) {
         module.exports.markFailed(sessionId, reason);
-        module.exports.remove(sessionId, { code: 4017, reason });
+        module.exports.remove(sessionId, { code: 4017, reason, closeReason, closeDetail: reason });
     } else {
-        module.exports.remove(sessionId);
+        module.exports.remove(sessionId, { closeReason, closeDetail: reason });
     }
 };
 
@@ -426,7 +428,7 @@ module.exports.remove = async (sessionId, options = {}) => {
     session._removing = true;
     clearTimeout(session._unattendedTimer);
 
-    const { code = 1000, reason = "Session terminated", closeReason = closeReasonForCode(code) } = options;
+    const { code = 1000, reason = "Session terminated", closeReason = closeReasonForCode(code), closeDetail = null } = options;
     closeAllWebSockets(sessionId, code, reason);
     if (session.recording) await finalizeTerminalRecording(sessionId);
     if (session.masterConnection) {
@@ -442,7 +444,7 @@ module.exports.remove = async (sessionId, options = {}) => {
     const { accountId, organizationId } = session;
     sessions.delete(sessionId);
     logger.info("Session removed", { sessionId, closeReason });
-    await require("../controllers/audit").recordSessionEnd(session.auditLogId, closeReason);
+    await require("../controllers/audit").recordSessionEnd(session.auditLogId, closeReason, closeDetail);
     stateBroadcaster.broadcast("CONNECTIONS", { accountId });
     if (organizationId) stateBroadcaster.broadcast("LIVE_SESSIONS", { organizationId });
     return true;

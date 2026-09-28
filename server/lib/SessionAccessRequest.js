@@ -15,16 +15,41 @@ const skipPermissionCheck = (type, scriptId) =>
 
 const getAllSessionsInternal = () => SessionManager.listActiveSessions();
 
-const findHolders = (entryId, excludeAccountId) => {
-    const numericEntry = Number(entryId);
-    const holders = [];
-    for (const session of getAllSessionsInternal()) {
-        if (Number(session.entryId) !== numericEntry) continue;
-        if (session.isHibernated) continue;
-        if (Number(session.accountId) === Number(excludeAccountId)) continue;
-        holders.push(session);
+const DEFAULT_PORTS = { rdp: 3389, vnc: 5900, ssh: 22, telnet: 23 };
+
+const protocolOf = (entry) => (entry.type === "server" ? entry.config?.protocol : entry.type) || null;
+
+// Several entries can point at the same machine; conflicts are about the machine, not the entry.
+const targetKeyOf = (entry) => {
+    if (!entry) return null;
+    const protocol = protocolOf(entry);
+    const ip = entry.config?.ip;
+    if (!ip) return `entry:${entry.id}`;
+    const port = Number(entry.config?.port) || DEFAULT_PORTS[protocol] || "";
+    return `${protocol}|${String(ip).trim().toLowerCase()}|${port}`;
+};
+
+const sessionsOnTarget = async (targetKey) => {
+    const sessions = getAllSessionsInternal().filter((s) => !s.isHibernated);
+    if (!sessions.length) return [];
+    const entryIds = [...new Set(sessions.map((s) => Number(s.entryId)))];
+    const entries = await Entry.findAll({ where: { id: entryIds }, attributes: ["id", "type", "config"] });
+    const keyByEntry = new Map(entries.map((e) => [e.id, targetKeyOf(e)]));
+    return sessions.filter((s) => keyByEntry.get(Number(s.entryId)) === targetKey);
+};
+
+const findHolders = async (targetKey, excludeAccountId) =>
+    (await sessionsOnTarget(targetKey)).filter((s) => Number(s.accountId) !== Number(excludeAccountId));
+
+// Windows RDP gives a user one seat per machine: a second login takes the first one over anyway.
+const replaceOwnRdpSessions = async (entry, accountId, targetKey) => {
+    if (protocolOf(entry) !== "rdp") return;
+    const own = (await sessionsOnTarget(targetKey)).filter((s) => Number(s.accountId) === Number(accountId));
+    for (const session of own) {
+        logger.info("Replacing own RDP session on the same machine", { sessionId: session.sessionId, entryId: entry.id });
+        await SessionManager.remove(session.sessionId, { code: 4015, reason: "Opened in another tab", closeReason: "replaced" });
     }
-    return holders;
+    if (own.length) stateBroadcaster.broadcast("CONNECTIONS", { accountId: Number(accountId) });
 };
 
 const serializeRequest = (req) => ({
@@ -47,6 +72,7 @@ const createRequest = async ({
     entryId,
     requesterAccountId,
     holderSession,
+    targetKey,
     type = null,
 }) => {
     const [entry, requester, holderAccount] = await Promise.all([
@@ -60,6 +86,7 @@ const createRequest = async ({
     const req = {
         requestId,
         entryId: Number(entryId),
+        targetKey,
         entryName: entry?.name || `Entry ${entryId}`,
         organizationId: entry?.organizationId || holderSession.organizationId || null,
         type,
@@ -118,11 +145,9 @@ const resolveRequest = async (requestId, decision, actorAccountId) => {
     req.status = req.decision === "allow" ? "approved" : "denied";
 
     if (req.status === "approved") {
-        // Take over: close holder's sessions on this entry (Win10/11 single-session model)
-        const toKick = getAllSessionsInternal().filter((s) =>
-            Number(s.entryId) === req.entryId
-            && Number(s.accountId) === req.holderAccountId
-            && !s.isHibernated);
+        // Take over: close the holder's sessions on this machine (Win10/11 single-session model)
+        const toKick = (await sessionsOnTarget(req.targetKey))
+            .filter((s) => Number(s.accountId) === req.holderAccountId);
         for (const session of toKick) {
             try {
                 await SessionManager.remove(session.sessionId, { code: 4015, reason: "Taken over by another user", closeReason: "replaced" });
@@ -180,14 +205,21 @@ const consumeApproved = (requestId, accountId, entryId) => {
 const checkConflict = async ({ entryId, accountId, type, scriptId, permissionRequestId }) => {
     if (skipPermissionCheck(type, scriptId)) return null;
 
+    const entry = await Entry.findByPk(entryId, { attributes: ["id", "type", "config"] });
+    const targetKey = targetKeyOf(entry);
+
     if (permissionRequestId) {
         const consumed = consumeApproved(permissionRequestId, accountId, entryId);
         if (consumed.code) return consumed;
+        if (entry) await replaceOwnRdpSessions(entry, accountId, targetKey);
         return null;
     }
 
-    const holders = findHolders(entryId, accountId);
-    if (!holders.length) return null;
+    const holders = targetKey ? await findHolders(targetKey, accountId) : [];
+    if (!holders.length) {
+        if (entry) await replaceOwnRdpSessions(entry, accountId, targetKey);
+        return null;
+    }
 
     // Prefer the most recently active holder
     holders.sort((a, b) => new Date(b.lastActivity) - new Date(a.lastActivity));
@@ -213,6 +245,7 @@ const checkConflict = async ({ entryId, accountId, type, scriptId, permissionReq
         entryId,
         requesterAccountId: accountId,
         holderSession,
+        targetKey,
         type,
     });
 
