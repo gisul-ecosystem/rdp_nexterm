@@ -1,6 +1,6 @@
 // Storage round-trips of the health service against a throwaway SQLite database.
 // Needs the server dependencies (sequelize, sqlite3); skipped when they are not installed.
-const { test, before } = require("node:test");
+const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs");
 const os = require("os");
@@ -25,6 +25,10 @@ before(async () => {
     await db.sync();
     healthService = require("../utils/healthService");
     health = require("../controllers/health");
+});
+
+after(async () => {
+    await db?.close();
 });
 
 test("settings load, save and reload with rules as an object", { skip: !hasDeps }, async () => {
