@@ -147,6 +147,7 @@
       "monitoring": "Monitoring",
       "snippets": "Snippets",
       "audit": "Audit",
+      "usage": "Usage",
       "account": "Account",
       "logout": "Logout",
       "collapseTitle": "Collapse Sidebar",
@@ -195,7 +196,17 @@
         "closedUnexpectedly": "Connection closed unexpectedly",
         "error": "Connection error occurred",
         "scriptClosedUnexpectedly": "Script connection closed unexpectedly",
-        "scriptError": "Script connection error occurred"
+        "scriptError": "Script connection error occurred",
+        "reconnecting": "Connection lost. Reconnecting…",
+        "endedWhileOffline": "The session ended while the connection was down.",
+        "ended": {
+          "replacedTitle": "Opened somewhere else",
+          "replacedMessage": "You opened this machine in another tab or browser, so this view was closed. Windows allows one desktop session per user.",
+          "takenOverTitle": "Session taken over",
+          "takenOverMessage": "Another user was given access to this machine, so your session was closed.",
+          "adminTitle": "Disconnected by an administrator",
+          "adminMessage": "An administrator ended this session."
+        }
       }
     },
     "messages": {
@@ -269,6 +280,113 @@
       "previous": "Previous",
       "next": "Next",
       "pageInfo": "Page {{current}} of {{total}}"
+    }
+  },
+  "usage": {
+    "page": {
+      "title": "VM Usage",
+      "subtitle": "Who used which machine, when, and for how long",
+      "refresh": "Refresh",
+      "exportCsv": "Export CSV",
+      "truncated": "Only the latest 10,000 sessions are included. Narrow the date range to see older ones."
+    },
+    "errors": {
+      "load": "Failed to load usage",
+      "export": "Failed to export usage",
+      "disconnect": "Failed to disconnect the session"
+    },
+    "live": {
+      "title": "Live now",
+      "empty": "No one is connected right now",
+      "viewers_one": "{{count}} browser view",
+      "viewers_other": "{{count}} browser views",
+      "disconnect": "Disconnect",
+      "confirmDisconnect": "Disconnect {{user}} from {{machine}}? Their session ends immediately.",
+      "disconnected": "Session disconnected",
+      "states": {
+        "active": "Active",
+        "unattended": "Browser closed, ending",
+        "hibernated": "Hibernated",
+        "connecting": "Connecting"
+      }
+    },
+    "summary": {
+      "totalTime": "Total usage",
+      "sessions": "Sessions",
+      "users": "Users",
+      "machines": "Machines",
+      "liveCount": "{{count}} live",
+      "byUser": "Usage by user",
+      "byMachine": "Usage by machine",
+      "sessionCount_one": "{{count}} session",
+      "sessionCount_other": "{{count}} sessions",
+      "empty": "No sessions in this range"
+    },
+    "filters": {
+      "range": "Period",
+      "from": "From",
+      "to": "To",
+      "user": "User",
+      "machine": "Machine",
+      "status": "Status",
+      "clear": "Clear filters",
+      "allUsers": "All users",
+      "allMachines": "All machines",
+      "allStatuses": "Any status",
+      "ranges": {
+        "today": "Today",
+        "7d": "Last 7 days",
+        "30d": "Last 30 days",
+        "90d": "Last 90 days",
+        "all": "All time",
+        "custom": "Custom"
+      }
+    },
+    "table": {
+      "user": "User",
+      "machine": "Machine",
+      "login": "Login",
+      "logout": "Logout",
+      "duration": "Duration",
+      "ended": "How it ended",
+      "stillOpen": "Still open",
+      "notRecorded": "Not recorded",
+      "deletedMachine": "Deleted machine #{{id}}",
+      "empty": {
+        "title": "No sessions found",
+        "subtitle": "Nobody connected in this period, or the filters exclude every session."
+      },
+      "details": {
+        "ipAddress": "IP address",
+        "browser": "Browser",
+        "lastSeen": "Last seen alive",
+        "closeDetail": "Detail",
+        "connectionReason": "Connection reason",
+        "auditId": "Audit entry"
+      }
+    },
+    "status": {
+      "live": "Live",
+      "ended": "Ended",
+      "unknown": "Not recorded"
+    },
+    "reasons": {
+      "user_disconnect": "Disconnected",
+      "tab_closed": "Tab or browser closed",
+      "connection_lost": "Connection lost",
+      "stale_timeout": "No response (lid closed / network lost)",
+      "view_closed": "View closed",
+      "replaced": "Replaced by a new login",
+      "remote_closed": "Ended on the machine",
+      "connect_failed": "Could not connect",
+      "engine_lost": "Engine connection lost",
+      "expired": "Expired after 6 hours",
+      "account_logout": "Signed out of Nexterm",
+      "entry_removed": "Server deleted",
+      "server_restart": "Nexterm restarted",
+      "admin_disconnect": "Disconnected by an administrator",
+      "ws_close": "Browser closed",
+      "ended": "Ended"
     }
   },
   "snippets": {

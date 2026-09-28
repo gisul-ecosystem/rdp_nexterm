@@ -63,6 +63,9 @@ const AUDIT_ACTIONS = {
     AI_FOLDER_CREATE: "ai.folder_create",
 };
 
+const SESSION_ACTIONS = Object.entries(AUDIT_ACTIONS)
+    .filter(([key]) => key.endsWith("_CONNECT")).map(([, action]) => action);
+
 const RESOURCE_TYPES = {
     ENTRY: "entry",
     IDENTITY: "identity",
@@ -198,6 +201,16 @@ const createAuditLog = async ({
     }
 };
 
+const getAuditableOrganizationIds = async (accountId) => {
+    const memberships = await OrganizationMember.findAll({
+        where: { accountId, status: "active" },
+    });
+    const auditable = await Promise.all(memberships.map(async (m) =>
+        (await hasOrganizationPermission(accountId, m.organizationId, Permission.ORG_AUDIT_VIEW))
+            ? m.organizationId : null));
+    return auditable.filter((id) => id !== null);
+};
+
 const getAuditLogsInternal = async (accountId, filters = {}) => {
     const { organizationId, action, resource, startDate, endDate, limit = 100, offset = 0 } = filters;
 
@@ -211,13 +224,7 @@ const getAuditLogsInternal = async (accountId, filters = {}) => {
             throw new Error("Access denied to organization audit logs");
         whereClause.organizationId = organizationId;
     } else {
-        const memberships = await OrganizationMember.findAll({
-            where: { accountId, status: "active" },
-        });
-        const auditable = await Promise.all(memberships.map(async (m) =>
-            (await hasOrganizationPermission(accountId, m.organizationId, Permission.ORG_AUDIT_VIEW))
-                ? m.organizationId : null));
-        const accessibleOrgIds = auditable.filter((id) => id !== null);
+        const accessibleOrgIds = await getAuditableOrganizationIds(accountId);
         whereClause[Op.or] = [{ accountId }, { organizationId: { [Op.in]: accessibleOrgIds } }];
     }
 
@@ -349,8 +356,7 @@ const touchSessionAudits = async (auditLogIds) => {
 // Sessions live in memory only, so any session audit still open at boot ended when the server stopped.
 const closeOrphanedSessionAudits = async () => {
     const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const connectActions = Object.entries(AUDIT_ACTIONS).filter(([key]) => key.endsWith("_CONNECT")).map(([, action]) => action);
-    const logs = await AuditLog.findAll({ where: { action: connectActions, timestamp: { [Op.gte]: since } } });
+    const logs = await AuditLog.findAll({ where: { action: SESSION_ACTIONS, timestamp: { [Op.gte]: since } } });
     let closed = 0;
     for (const log of logs) {
         const details = log.details || {};
@@ -467,5 +473,7 @@ module.exports.updateAuditLogWithSessionDuration = updateAuditLogWithSessionDura
 module.exports.recordSessionEnd = recordSessionEnd;
 module.exports.touchSessionAudits = touchSessionAudits;
 module.exports.closeOrphanedSessionAudits = closeOrphanedSessionAudits;
+module.exports.getAuditableOrganizationIds = getAuditableOrganizationIds;
 module.exports.AUDIT_ACTIONS = AUDIT_ACTIONS;
+module.exports.SESSION_ACTIONS = SESSION_ACTIONS;
 module.exports.RESOURCE_TYPES = RESOURCE_TYPES;

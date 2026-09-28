@@ -107,7 +107,7 @@ const createSession = async (accountId, entryId, identityId, connectionReason, t
         details: {
             connectionReason,
             loginAt: new Date().toISOString(),
-            ...(scriptId && { serverId: entry.id }),
+            ...(scriptId ? { serverId: entry.id } : { name: entry.name }),
         },
         ipAddress,
         userAgent,
@@ -189,28 +189,25 @@ const getSessions = async (accountId, tabId = null, browserId = null) => {
     });
 };
 
-const hibernateSession = (sessionId) => {
-    const success = SessionManager.hibernate(sessionId);
-    if (success) {
-        return { message: "Session hibernated" };
-    }
-    return { code: 404, message: "Session not found" };
+const hibernateSession = (accountId, sessionId) => {
+    const { error } = validateSessionOwnership(accountId, sessionId);
+    if (error) return error;
+    SessionManager.hibernate(sessionId);
+    return { message: "Session hibernated" };
 };
 
-const resumeSession = (sessionId, tabId = null, browserId = null) => {
-    const success = SessionManager.resume(sessionId, tabId, browserId);
-    if (success) {
-        return { message: "Session resumed" };
-    }
-    return { code: 404, message: "Session not found" };
+const resumeSession = (accountId, sessionId, tabId = null, browserId = null) => {
+    const { error } = validateSessionOwnership(accountId, sessionId);
+    if (error) return error;
+    SessionManager.resume(sessionId, tabId, browserId);
+    return { message: "Session resumed" };
 };
 
-const deleteSession = (sessionId) => {
-    const success = SessionManager.remove(sessionId, { closeReason: "user_disconnect" });
-    if (success) {
-        return { message: "Session deleted" };
-    }
-    return { code: 404, message: "Session not found" };
+const deleteSession = (accountId, sessionId) => {
+    const { error } = validateSessionOwnership(accountId, sessionId);
+    if (error) return error;
+    SessionManager.remove(sessionId, { closeReason: "user_disconnect" });
+    return { message: "Session deleted" };
 };
 
 const getSession = async (accountId, sessionId) => {

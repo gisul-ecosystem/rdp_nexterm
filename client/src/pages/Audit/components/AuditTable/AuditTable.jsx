@@ -55,27 +55,29 @@ export const AuditTable = ({ logs, loading, pagination, onPageChange, getIconFor
         return "gray";
     }, []);
 
+    const formatDetailValue = useCallback((key, value) => {
+        if (key === "sessionDuration") return formatSessionDuration(Number(value), t);
+        if (key === "closeReason") return t(`usage.reasons.${value}`, { defaultValue: String(value) });
+        if (key.endsWith("At") && !Number.isNaN(Date.parse(value))) return new Date(value).toLocaleString();
+        return String(value);
+    }, [formatSessionDuration, t]);
+
     const renderDetails = useCallback((details) => {
         if (!details) return null;
 
         return (
             <div className="audit-details">
-                {Object.entries(details).map(([key, value]) => (
+                {Object.entries(details).filter(([, value]) => value !== null && value !== undefined).map(([key, value]) => (
                     <div key={key} className="detail-item">
                         <span className="detail-key">
                             {key.replace(/([A-Z])/g, " $1").toLowerCase()}:
                         </span>
-                        <span className="detail-value">
-                            {key === "sessionDuration" 
-                                ? formatSessionDuration(Number(value), t)
-                                : String(value)
-                            }
-                        </span>
+                        <span className="detail-value">{formatDetailValue(key, value)}</span>
                     </div>
                 ))}
             </div>
         );
-    }, [t]);
+    }, [formatDetailValue]);
 
     const handleRowClick = useCallback((logId) => {
         setExpandedRow(prev => prev === logId ? null : logId);

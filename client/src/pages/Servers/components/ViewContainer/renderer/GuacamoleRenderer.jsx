@@ -10,6 +10,7 @@ import ConnectionLoader from "./components/ConnectionLoader";
 import ConnectionError, { mapConnectionError } from "./components/ConnectionError";
 import SessionToolbar from "./components/SessionToolbar";
 import { getWebSocketUrl } from "@/common/utils/ConnectionUtil.js";
+import { getRequest } from "@/common/utils/RequestUtil.js";
 import { openPopout, onPopoutClosed } from "@/common/utils/PopoutUtil.js";
 import { createHostFsProvider } from "@/common/utils/HostFsProvider.js";
 import { createBrowserFsProvider } from "@/common/utils/BrowserFsProvider.js";
@@ -26,6 +27,17 @@ const ZOOM_MIN = 1;
 const ZOOM_MAX = 4;
 
 const ZOOM_STEP = 0.25;
+
+// Longer than the server's 15 s grace for sessions without a browser view.
+const RECONNECT_WINDOW_MS = 20000;
+
+const RECONNECT_INTERVAL_MS = 2000;
+
+const NETWORK_FAILURE_CODES = new Set([
+    Guacamole.Status.Code.UPSTREAM_NOT_FOUND,
+    Guacamole.Status.Code.UPSTREAM_TIMEOUT,
+    Guacamole.Status.Code.UPSTREAM_UNAVAILABLE,
+]);
 
 const resumeAudioContext = () => {
     const context = Guacamole.AudioContextFactory.getAudioContext();
@@ -92,13 +104,54 @@ const GuacamoleRenderer = ({
     const [connectionError, setConnectionError] = useState(() => getSessionError?.(session.id) || null);
     const errorShownRef = useRef(!!connectionError);
 
+    const [connectAttempt, setConnectAttempt] = useState(0);
+    const [reconnecting, setReconnecting] = useState(false);
+    const hasConnectedRef = useRef(false);
+    const reconnectDeadlineRef = useRef(null);
+    const reconnectTimerRef = useRef(null);
+    const canReconnect = ownsSession && !session.joinSessionId;
+
+    const stopReconnecting = () => {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectDeadlineRef.current = null;
+        setReconnecting(false);
+    };
+
     const reportError = (rawMessage) => {
         if (errorShownRef.current) return;
         errorShownRef.current = true;
+        stopReconnecting();
         const mapped = mapConnectionError(rawMessage, t);
         markSessionErrored?.(session.id, mapped);
         setConnectionError(mapped);
     };
+
+    // The server keeps the session through short outages (lid closed, Wi-Fi switch), so rejoin it if it still exists.
+    const scheduleReconnect = () => {
+        reconnectDeadlineRef.current ??= Date.now() + RECONNECT_WINDOW_MS;
+        setReconnecting(true);
+
+        const giveUp = (messageKey) => reportError(t(messageKey));
+
+        const attempt = async () => {
+            if (Date.now() >= reconnectDeadlineRef.current) return giveUp("common.errors.connection.closedUnexpectedly");
+            try {
+                await getRequest(`connections/${session.id}`);
+                setConnectAttempt((n) => n + 1);
+            } catch (error) {
+                // Network errors and non-JSON proxy pages mean the server is still unreachable.
+                if (error instanceof TypeError || error instanceof SyntaxError) {
+                    reconnectTimerRef.current = setTimeout(attempt, RECONNECT_INTERVAL_MS);
+                    return;
+                }
+                giveUp("common.errors.connection.endedWhileOffline");
+            }
+        };
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = setTimeout(attempt, RECONNECT_INTERVAL_MS);
+    };
+
+    useEffect(() => () => clearTimeout(reconnectTimerRef.current), []);
 
     useEffect(() => {
         sessionRef.current = session;
@@ -531,8 +584,10 @@ const GuacamoleRenderer = ({
         tunnel.oninstruction = (opcode, args) => {
             if (!loaderHidden && opcode === "blob") {
                 loaderHidden = true;
+                hasConnectedRef.current = true;
                 connectionLoaderRef.current?.hide();
                 setReady(true);
+                if (reconnectDeadlineRef.current) stopReconnecting();
             }
             if (opcode === "error" && args?.length) {
                 errorMessageRef.current = args[0] || "Connection failed";
@@ -618,8 +673,10 @@ const GuacamoleRenderer = ({
         };
         keyboard.onkeyup = (k, sc) => client.sendKeyEvent(0, k, sc);
 
+        let reconnectPending = false;
+
         client.onstatechange = (st) => {
-            if (isCleaningUp) return;
+            if (isCleaningUp || reconnectPending) return;
             if (st === Guacamole.Client.State.CONNECTED) {
                 lastSentRef.current = { w: 0, h: 0, monitor: -1, at: 0 };
                 confirmAttemptsRef.current = 0;
@@ -632,13 +689,18 @@ const GuacamoleRenderer = ({
             }
         };
         tunnel.onstatechange = (st) => {
-            if (isCleaningUp || st !== Guacamole.Tunnel.State.CLOSED) return;
+            if (isCleaningUp || reconnectPending || st !== Guacamole.Tunnel.State.CLOSED) return;
             if (errorShownRef.current) return;
             if (errorMessageRef.current) reportError(errorMessageRef.current);
             else disconnectFromServer(s.id);
         };
         tunnel.onerror = (status) => {
             if (isCleaningUp) return;
+            if (canReconnect && hasConnectedRef.current && !errorMessageRef.current && NETWORK_FAILURE_CODES.has(status?.code)) {
+                reconnectPending = true;
+                scheduleReconnect();
+                return;
+            }
             const message = status?.message || errorMessageRef.current || t("common.errors.connection.error");
             reportError(message);
         };
@@ -669,9 +731,11 @@ const GuacamoleRenderer = ({
             errorShownRef.current = false;
             cleanupClipboard?.();
             ref.current?.removeEventListener("keydown", handleKeyDown, true);
+            keyboard.onkeydown = keyboard.onkeyup = null;
             client.onstatechange = tunnel.onstatechange = tunnel.onerror = null;
             audioPlayersRef.current = [];
             tunnel.disconnect();
+            display.remove();
             clientRef.current = null;
 
             layoutRef.current = null;
@@ -697,7 +761,7 @@ const GuacamoleRenderer = ({
     useEffect(() => {
         const cleanup = connect();
         return () => cleanup?.();
-    }, [sessionToken, session.id, isShared]);
+    }, [sessionToken, session.id, isShared, connectAttempt]);
 
     useEffect(() => {
         window.addEventListener("blur", releaseModifiers);
@@ -751,6 +815,12 @@ const GuacamoleRenderer = ({
                                 onZoomIn={zoomIn} onZoomOut={zoomOut} onResetZoom={resetZoom}
                                 fullscreenEnabled={fullscreenEnabled} onFullscreenToggle={onFullscreenToggle}
                                 onDraggingChange={(dragging) => draggingRef.current = dragging} />
+            )}
+            {reconnecting && !connectionError && (
+                <div className="guac-reconnecting" role="status">
+                    <span className="guac-reconnecting__spinner" />
+                    {t("common.errors.connection.reconnecting")}
+                </div>
             )}
             {connectionError && (
                 <ConnectionError message={connectionError} onClose={() => disconnectFromServer(session.id)} />

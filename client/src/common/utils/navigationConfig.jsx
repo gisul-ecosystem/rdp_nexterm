@@ -1,4 +1,4 @@
-import { mdiServerOutline, mdiCodeBraces, mdiChartBoxOutline, mdiShieldCheckOutline, mdiAccountCircleOutline, mdiAccountGroup, mdiClockStarFourPointsOutline, mdiShieldAccountOutline, mdiDomain, mdiCreationOutline, mdiKeyVariant, mdiConsole, mdiKeyboardOutline, mdiCloudDownloadOutline, mdiChartLine, mdiHarddisk, mdiFolderOutline, mdiEngine, mdiPalette, mdiShieldKeyOutline } from "@mdi/js";
+import { mdiServerOutline, mdiCodeBraces, mdiChartBoxOutline, mdiShieldCheckOutline, mdiChartTimelineVariant, mdiAccountCircleOutline, mdiAccountGroup, mdiClockStarFourPointsOutline, mdiShieldAccountOutline, mdiDomain, mdiCreationOutline, mdiKeyVariant, mdiConsole, mdiKeyboardOutline, mdiCloudDownloadOutline, mdiChartLine, mdiHarddisk, mdiFolderOutline, mdiEngine, mdiPalette, mdiShieldKeyOutline } from "@mdi/js";
 import Account from "@/pages/Settings/pages/Account";
 import Appearance from "@/pages/Settings/pages/Appearance";
 import Terminal from "@/pages/Settings/pages/Terminal";
@@ -22,6 +22,7 @@ export const getSidebarNavigation = t => [
     { title: t('common.sidebar.monitoring'), key: "monitoring", path: "/monitoring", icon: mdiChartBoxOutline },
     { title: t('common.sidebar.snippets'), key: "snippets", path: "/snippets", icon: mdiCodeBraces },
     { title: t('common.sidebar.audit'), key: "audit", path: "/audit", icon: mdiShieldCheckOutline, permission: Permission.AUDIT_VIEW },
+    { title: t('common.sidebar.usage'), key: "usage", path: "/usage", icon: mdiChartTimelineVariant, permission: Permission.AUDIT_VIEW },
 ];
 
 export const getSettingsUserPages = t => [

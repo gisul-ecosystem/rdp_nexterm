@@ -1,0 +1,125 @@
+@use "@/common/styles/colors"
+@use "@/common/styles/breakpoints"
+
+.usage-summary
+  display: flex
+  flex-direction: column
+  gap: 1rem
+  flex-shrink: 0
+
+  &__cards
+    display: grid
+    grid-template-columns: repeat(4, minmax(0, 1fr))
+    gap: 1rem
+
+    @media (max-width: breakpoints.$tablet)
+      grid-template-columns: repeat(2, minmax(0, 1fr))
+      gap: 0.75rem
+
+  &__breakdowns
+    display: grid
+    grid-template-columns: repeat(2, minmax(0, 1fr))
+    gap: 1rem
+
+    @media (max-width: breakpoints.$tablet)
+      grid-template-columns: 1fr
+      gap: 0.75rem
+
+.usage-card
+  display: flex
+  align-items: center
+  gap: 0.875rem
+  padding: 1rem 1.125rem
+  background-color: colors.$lighter-background
+  border: 1px solid colors.$dark-gray
+  border-radius: 0.75rem
+  box-shadow: colors.$shadow-lg
+
+  svg
+    width: 1.75rem
+    height: 1.75rem
+    color: colors.$primary
+    flex-shrink: 0
+
+  div
+    display: flex
+    flex-direction: column
+    gap: 0.2rem
+    min-width: 0
+
+  &__value
+    color: colors.$white
+    font-size: 1.35rem
+    font-weight: 700
+
+  &__label
+    display: flex
+    gap: 0.5rem
+    color: colors.$subtext
+    font-size: 0.85rem
+
+    em
+      font-style: normal
+      color: colors.$success
+
+.usage-breakdown
+  padding: 1rem 1.125rem
+  background-color: colors.$lighter-background
+  border: 1px solid colors.$dark-gray
+  border-radius: 0.75rem
+  box-shadow: colors.$shadow-lg
+  display: flex
+  flex-direction: column
+  gap: 0.75rem
+  min-width: 0
+
+  h3
+    margin: 0
+    color: colors.$white
+    font-size: 0.95rem
+    font-weight: 600
+
+  &__empty
+    margin: 0
+    color: colors.$subtext
+    font-size: 0.9rem
+
+  &__row
+    display: flex
+    flex-direction: column
+    gap: 0.35rem
+
+  &__label
+    display: flex
+    justify-content: space-between
+    gap: 1rem
+    font-size: 0.875rem
+
+  &__name
+    color: colors.$white
+    overflow: hidden
+    text-overflow: ellipsis
+    white-space: nowrap
+
+  &__value
+    color: colors.$white
+    font-family: monospace
+    white-space: nowrap
+
+    span
+      margin-left: 0.5rem
+      color: colors.$subtext
+      font-family: inherit
+      font-size: 0.8rem
+
+  &__bar
+    height: 0.35rem
+    border-radius: 0.2rem
+    background-color: colors.$dark-gray
+    overflow: hidden
+
+    span
+      display: block
+      height: 100%
+      border-radius: 0.2rem
+      background-color: colors.$primary

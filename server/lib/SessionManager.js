@@ -37,6 +37,8 @@ module.exports.create = (accountId, entryId, configuration, connectionReason = n
 
 module.exports.get = (sessionId) => sessions.get(sessionId) || null;
 
+module.exports.listAll = () => [...sessions.values()];
+
 module.exports.listActiveSessions = () => {
     const result = [];
     for (const session of sessions.values()) {

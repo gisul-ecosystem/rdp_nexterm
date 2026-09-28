@@ -89,6 +89,7 @@ app.use("/api/entries", authenticate, require("./routes/entry"));
 app.use("/api/monitoring", authenticate, require("./routes/monitoring"));
 app.use("/api/integrations", authenticate, require("./routes/integration"));
 app.use("/api/audit", authenticate, require("./routes/audit"));
+app.use("/api/usage", authenticate, requirePermission(Permission.AUDIT_VIEW), require("./routes/usage"));
 app.use("/api/identities", authenticate, require("./routes/identity"));
 app.use("/api/snippets", authenticate, require("./routes/snippet"));
 app.use("/api/organizations", authenticate, require("./routes/organization"));

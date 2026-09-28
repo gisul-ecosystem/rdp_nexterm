@@ -1,5 +1,35 @@
 @use "@/common/styles/colors"
 
+.guac-reconnecting
+  position: absolute
+  top: 1rem
+  left: 50%
+  transform: translateX(-50%)
+  z-index: 150
+  display: flex
+  align-items: center
+  gap: 0.75rem
+  padding: 0.625rem 1.125rem
+  border-radius: 0.625rem
+  background-color: colors.$lighter-background
+  border: 1px solid colors.$warning
+  box-shadow: colors.$shadow-lg
+  color: colors.$white
+  font-size: 0.9rem
+  cursor: default
+
+  &__spinner
+    width: 1rem
+    height: 1rem
+    border: 2px solid colors.$gray
+    border-top-color: colors.$warning
+    border-radius: 50%
+    animation: guac-reconnect-spin 0.8s linear infinite
+
+@keyframes guac-reconnect-spin
+  to
+    transform: rotate(360deg)
+
 .guac-drop-overlay
   position: absolute
   inset: 0
