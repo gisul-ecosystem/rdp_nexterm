@@ -8,6 +8,7 @@ import GuacamoleRenderer from "@/pages/Servers/components/ViewContainer/renderer
 import XtermRenderer from "@/pages/Servers/components/ViewContainer/renderer/XtermRenderer.jsx";
 import Loading from "@/common/components/Loading";
 import { request } from "@/common/utils/RequestUtil";
+import { onBrowserFullscreenChange, toggleBrowserFullscreen } from "@/common/utils/BrowserFullscreen.js";
 
 const noop = () => {};
 
@@ -19,6 +20,9 @@ export const Share = () => {
     const [error, setError] = useState(null);
     const [disconnected, setDisconnected] = useState(false);
     const refs = useRef({});
+    const [fullscreenEnabled, setFullscreenEnabled] = useState(false);
+
+    useEffect(() => onBrowserFullscreenChange(setFullscreenEnabled), []);
 
     const handleDisconnect = () => {
         setDisconnected(true);
@@ -57,11 +61,11 @@ export const Share = () => {
     if (!session) return null;
 
     const renderer = session.type || session.server?.renderer;
-    const fullscreen = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+    const fullscreen = toggleBrowserFullscreen;
 
     return (
         <div className="share-container">
-            {renderer === "guac" && <GuacamoleRenderer session={session} disconnectFromServer={handleDisconnect} registerGuacamoleRef={noop} onFullscreenToggle={fullscreen} isShared />}
+            {renderer === "guac" && <GuacamoleRenderer session={session} disconnectFromServer={handleDisconnect} registerGuacamoleRef={noop} onFullscreenToggle={fullscreen} fullscreenEnabled={fullscreenEnabled} isShared />}
             {renderer === "terminal" && <XtermRenderer session={session} disconnectFromServer={handleDisconnect} registerTerminalRef={noop} broadcastMode={false} terminalRefs={refs} updateProgress={noop} layoutMode="single" onBroadcastToggle={noop} onFullscreenToggle={fullscreen} isShared />}
         </div>
     );

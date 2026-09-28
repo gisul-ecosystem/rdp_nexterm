@@ -10,7 +10,8 @@ import NotesRenderer from "@/pages/Servers/components/ViewContainer/renderer/Not
 import Icon from "@mdi/react";
 import { mdiFullscreenExit } from "@mdi/js";
 import { useTranslation } from "react-i18next";
-import { getTitleBarHeight } from "@/common/utils/TauriUtil.js";
+import { getTitleBarHeight, isTauri } from "@/common/utils/TauriUtil.js";
+import { enterBrowserFullscreen, exitBrowserFullscreen, onBrowserFullscreenChange } from "@/common/utils/BrowserFullscreen.js";
 import { useTauriWindow } from "@/common/hooks/useTauriWindow.js";
 import { useBodyClass } from "@/common/hooks/useBodyClass.js";
 
@@ -141,8 +142,28 @@ export const ViewContainer = ({
         setBroadcastMode(prev => !prev);
     }, []);
 
+    const fullscreenRef = useRef(false);
+    useEffect(() => { fullscreenRef.current = fullscreenMode; }, [fullscreenMode]);
+
     const toggleFullscreenMode = useCallback(() => {
-        setFullscreenMode(prev => !prev);
+        const next = !fullscreenRef.current;
+        fullscreenRef.current = next;
+        setFullscreenMode(next);
+        if (!isTauri()) next ? enterBrowserFullscreen() : exitBrowserFullscreen();
+    }, []);
+
+    useEffect(() => {
+        if (isTauri()) return undefined;
+        const stopListening = onBrowserFullscreenChange((active) => {
+            if (!active && fullscreenRef.current) {
+                fullscreenRef.current = false;
+                setFullscreenMode(false);
+            }
+        });
+        return () => {
+            stopListening();
+            exitBrowserFullscreen();
+        };
     }, []);
 
     const onBtnMouseDown = useCallback((e) => {

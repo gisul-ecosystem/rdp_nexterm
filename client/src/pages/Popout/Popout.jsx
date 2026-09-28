@@ -10,6 +10,7 @@ import Loading from "@/common/components/Loading";
 import TitleBar from "@/common/components/TitleBar";
 import { isTauri } from "@/common/utils/TauriUtil.js";
 import { notifyPopoutClosed, onForceClose } from "@/common/utils/PopoutUtil.js";
+import { onBrowserFullscreenChange, toggleBrowserFullscreen } from "@/common/utils/BrowserFullscreen.js";
 
 const noop = () => {};
 
@@ -47,18 +48,22 @@ export const Popout = () => {
 
     useEffect(() => onForceClose(() => window.close()), []);
 
+    const [fullscreenEnabled, setFullscreenEnabled] = useState(false);
+    useEffect(() => onBrowserFullscreenChange(setFullscreenEnabled), []);
+
     if (loading) return <Loading />;
     if (!session || session.error) return null;
 
     const renderer = session.type || session.server?.renderer;
     const closeWindow = () => window.close();
-    const fullscreen = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+    const fullscreen = toggleBrowserFullscreen;
 
     return (
         <div className="popout-container">
             {isConnectorMode && <TitleBar title={titleOf(session.server?.name || "Session")} />}
             {renderer === "guac" && <GuacamoleRenderer session={session} disconnectFromServer={closeWindow}
                                                       registerGuacamoleRef={noop} onFullscreenToggle={fullscreen}
+                                                      fullscreenEnabled={fullscreenEnabled}
                                                       pinnedMonitor={pinnedMonitor} />}
             {renderer === "terminal" && <XtermRenderer session={session} disconnectFromServer={closeWindow} registerTerminalRef={noop} broadcastMode={false} terminalRefs={refs} updateProgress={noop} layoutMode="single" onBroadcastToggle={noop} onFullscreenToggle={fullscreen} />}
         </div>
