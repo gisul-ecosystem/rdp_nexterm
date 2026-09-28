@@ -2394,6 +2394,7 @@
       "broadcasting": "Broadcasting",
       "fullScreen": "Full-Screen",
       "exitFullScreen": "Exit Full-Screen Mode",
+      "fullScreenBlocked": "Your browser blocked full screen. Answer any open browser prompt (like the clipboard question) and try again.",
       "badgeOn": "ON"
     },
     "notesPanel": {

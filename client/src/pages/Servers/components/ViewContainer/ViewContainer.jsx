@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import { getTitleBarHeight, isTauri } from "@/common/utils/TauriUtil.js";
 import { enterBrowserFullscreen, exitBrowserFullscreen, onBrowserFullscreenChange } from "@/common/utils/BrowserFullscreen.js";
 import { useTauriWindow } from "@/common/hooks/useTauriWindow.js";
+import { useToast } from "@/common/contexts/ToastContext.jsx";
 import { useBodyClass } from "@/common/hooks/useBodyClass.js";
 
 const BTN_SIZE = 44;
@@ -59,6 +60,7 @@ export const ViewContainer = ({
     const [titleBarTabsSlot, setTitleBarTabsSlot] = useState(null);
     const appWindow = useTauriWindow();
     const { t } = useTranslation();
+    const { sendToast } = useToast();
 
     useEffect(() => {
         setTitleBarTabsSlot(document.getElementById("titlebar-tabs-slot"));
@@ -149,8 +151,12 @@ export const ViewContainer = ({
         const next = !fullscreenRef.current;
         fullscreenRef.current = next;
         setFullscreenMode(next);
-        if (!isTauri()) next ? enterBrowserFullscreen() : exitBrowserFullscreen();
-    }, []);
+        if (isTauri()) return;
+        if (!next) return exitBrowserFullscreen();
+        enterBrowserFullscreen().then((entered) => {
+            if (!entered && fullscreenRef.current) sendToast(t("common.error"), t("servers.terminalActions.fullScreenBlocked"));
+        });
+    }, [sendToast, t]);
 
     useEffect(() => {
         if (isTauri()) return undefined;

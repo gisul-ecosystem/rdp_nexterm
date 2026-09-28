@@ -20,6 +20,10 @@ const SIZE_RESEND_INTERVAL = 5000;
 const SIZE_CONFIRM_INTERVAL = 500;
 const SIZE_CONFIRM_ATTEMPTS = 6;
 
+// A remote resolution change is expensive (the desktop redraws and briefly stalls), so while the view is being
+// resized (full screen transitions, window drags) the picture is only scaled locally and the size is sent once settled.
+const SIZE_SETTLE_MS = 300;
+
 const SHORTCUT_HOLD = 50;
 
 const ZOOM_MIN = 1;
@@ -90,6 +94,8 @@ const GuacamoleRenderer = ({
     const layoutRef = useRef(null);
     const lastSentRef = useRef({ w: 0, h: 0, monitor: -1, at: 0 });
     const confirmAttemptsRef = useRef(0);
+    const pendingSizeRef = useRef(null);
+    const settleTimerRef = useRef(null);
     const { getParsedKeybind } = useKeymaps();
     const { sendToast } = useToast();
     const { t } = useTranslation();
@@ -239,6 +245,23 @@ const GuacamoleRenderer = ({
             const monitor = activeMonitorRef.current;
             const last = lastSentRef.current;
             const changed = last.w !== dw || last.h !== dh || last.monitor !== monitor;
+
+            if (changed && last.w) {
+                const pending = pendingSizeRef.current;
+                const now = Date.now();
+                if (!pending || pending.w !== dw || pending.h !== dh || pending.monitor !== monitor) {
+                    pendingSizeRef.current = { w: dw, h: dh, monitor, since: now };
+                    clearTimeout(settleTimerRef.current);
+                    settleTimerRef.current = setTimeout(resizeHandler, SIZE_SETTLE_MS);
+                    applyViewport();
+                    return;
+                }
+                if (now - pending.since < SIZE_SETTLE_MS) {
+                    applyViewport();
+                    return;
+                }
+            }
+            pendingSizeRef.current = null;
 
             const display = clientRef.current.getDisplay();
             const applied = display.getWidth() === dw && display.getHeight() === dh;
@@ -778,6 +801,7 @@ const GuacamoleRenderer = ({
             window.removeEventListener("resize", resizeHandler);
             observer?.disconnect();
             clearInterval(interval);
+            clearTimeout(settleTimerRef.current);
         };
     }, []);
 
