@@ -266,6 +266,7 @@ const stopRealtime = () => {
 
 const realtimeTick = () => {
     try {
+        for (const ws of realtimeViewers.keys()) if (ws.readyState > 1) removeRealtimeViewer(ws);
         if (!realtimeViewers.size && Date.now() - realtimeIdleSince >= REALTIME_IDLE_MS) return stopRealtime();
         const snap = hostMetrics.snapshot(DATA_PATH);
         const before = realtimePrev;
@@ -292,7 +293,7 @@ const realtimeTick = () => {
 };
 
 const addRealtimeViewer = (ws, accountId) => {
-    if (!host) return false;
+    if (!host || ws.readyState !== 1) return false;
     realtimeViewers.set(ws, accountId);
     realtimeIdleSince = null;
     if (!realtimeTimer) {

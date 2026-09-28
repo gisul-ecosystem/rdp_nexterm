@@ -38,6 +38,7 @@ test("real-time readings go to subscribers once a second and stop for removed on
     const ws = { readyState: 1, send: (m) => messages.push(JSON.parse(m)) };
     assert.equal(healthService.addRealtimeViewer(ws, 1), true);
     assert.deepEqual(messages[0], { type: "HEALTH_LIVE", data: { points: [], intervalMs: 1000 } });
+    assert.equal(healthService.addRealtimeViewer({ readyState: 3, send: () => assert.fail("closed socket got data") }, 3), false);
 
     await new Promise((r) => setTimeout(r, 3300));
     const points = messages.slice(1).map((m) => m.data.point);

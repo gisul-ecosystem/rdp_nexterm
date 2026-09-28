@@ -7,6 +7,10 @@ const { hasSystemPermission } = require("../permissions/engine");
 const { Permission } = require("../permissions/registry");
 
 module.exports = async (ws, req) => {
+    const early = [];
+    const queue = (msg) => early.push(msg);
+    ws.on("message", queue);
+
     const { sessionToken, tabId, browserId } = req.query;
     if (!sessionToken) return ws.close(4001, "Missing sessionToken");
 
@@ -22,7 +26,7 @@ module.exports = async (ws, req) => {
     stateBroadcaster.register(user.id, session.id, ws, tabId || null, browserId || null);
     stateBroadcaster.sendAllStateToConnection(user.id, conn).catch(() => {});
 
-    ws.on("message", async (msg) => {
+    const onMessage = async (msg) => {
         try {
             const { action, type } = JSON.parse(msg);
             if (action === "refresh") {
@@ -33,7 +37,10 @@ module.exports = async (ws, req) => {
                 healthService.removeRealtimeViewer(ws);
             }
         } catch {}
-    });
+    };
+    ws.off("message", queue);
+    ws.on("message", onMessage);
+    early.forEach(onMessage);
 
     const cleanup = () => {
         stateBroadcaster.unregister(user.id, ws);
