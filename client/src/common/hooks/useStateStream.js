@@ -3,7 +3,7 @@ import useWebSocket, { ReadyState } from "react-use-websocket";
 import { getWebSocketUrl, getTabId, getBrowserId } from "@/common/utils/ConnectionUtil.js";
 import { closeAllPopouts } from "@/common/utils/PopoutUtil.js";
 
-export const STATE_TYPES = { ENTRIES: "ENTRIES", IDENTITIES: "IDENTITIES", SNIPPETS: "SNIPPETS", CONNECTIONS: "CONNECTIONS", LIVE_SESSIONS: "LIVE_SESSIONS", SESSION_PRESENCE: "SESSION_PRESENCE", ACCESS_REQUEST: "ACCESS_REQUEST", HEALTH_ALERTS: "HEALTH_ALERTS", LOGOUT: "LOGOUT" };
+export const STATE_TYPES = { ENTRIES: "ENTRIES", IDENTITIES: "IDENTITIES", SNIPPETS: "SNIPPETS", CONNECTIONS: "CONNECTIONS", LIVE_SESSIONS: "LIVE_SESSIONS", SESSION_PRESENCE: "SESSION_PRESENCE", ACCESS_REQUEST: "ACCESS_REQUEST", HEALTH_ALERTS: "HEALTH_ALERTS", HEALTH_LIVE: "HEALTH_LIVE", LOGOUT: "LOGOUT" };
 
 export const forceLogoutClient = async () => {
     await closeAllPopouts();
@@ -17,17 +17,27 @@ export const useStateStream = (sessionToken, handlers = {}) => {
     const [connectionError, setConnectionError] = useState(false);
     const hasConnectedRef = useRef(false);
     const invalidatedRef = useRef(false);
+    const socketRef = useRef(null);
+    const subscriptionsRef = useRef(new Map());
     
     useEffect(() => { handlersRef.current = handlers; }, [handlers]);
 
     const wsUrl = sessionToken ? getWebSocketUrl("/api/ws/state", { sessionToken, tabId: getTabId(), browserId: getBrowserId() }) : null;
-    
-    const onOpen = useCallback(() => {
-        hasConnectedRef.current = true;
-        setConnectionError(false);
+
+    const sendRaw = useCallback((payload) => {
+        const socket = socketRef.current;
+        if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(payload));
     }, []);
     
+    const onOpen = useCallback((e) => {
+        hasConnectedRef.current = true;
+        socketRef.current = e.target;
+        setConnectionError(false);
+        for (const type of subscriptionsRef.current.keys()) sendRaw({ action: "subscribe", type });
+    }, [sendRaw]);
+    
     const onClose = useCallback((e) => {
+        socketRef.current = null;
         if (e.code === 4010 && hasConnectedRef.current) {
             invalidatedRef.current = true;
             forceLogoutClient();
@@ -40,7 +50,14 @@ export const useStateStream = (sessionToken, handlers = {}) => {
         if (!hasConnectedRef.current) setConnectionError(true);
     }, []);
 
-    const { sendMessage, lastMessage, readyState } = useWebSocket(wsUrl, {
+    const onMessage = useCallback((e) => {
+        try {
+            const { type, data } = JSON.parse(e.data);
+            if (type && handlersRef.current[type]) handlersRef.current[type](data);
+        } catch {}
+    }, []);
+
+    const { sendMessage, readyState } = useWebSocket(wsUrl, {
         shouldReconnect: (e) => !invalidatedRef.current && e.code !== 4010,
         reconnectAttempts: Infinity,
         reconnectInterval: 3000,
@@ -48,6 +65,8 @@ export const useStateStream = (sessionToken, handlers = {}) => {
         onOpen,
         onClose,
         onError,
+        onMessage,
+        filter: () => false,
     }, !!sessionToken);
 
     useEffect(() => {
@@ -64,17 +83,28 @@ export const useStateStream = (sessionToken, handlers = {}) => {
         }
     }, [sessionToken]);
 
-    useEffect(() => {
-        if (!lastMessage?.data) return;
-        try {
-            const { type, data } = JSON.parse(lastMessage.data);
-            if (type && handlersRef.current[type]) handlersRef.current[type](data);
-        } catch {}
-    }, [lastMessage]);
-
     const requestRefresh = useCallback((type = null) => {
         if (readyState === ReadyState.OPEN) sendMessage(JSON.stringify({ action: "refresh", type }));
     }, [sendMessage, readyState]);
 
-    return { isConnected: readyState === ReadyState.OPEN, connectionError, requestRefresh };
+    const subscribe = useCallback((type) => {
+        const subscriptions = subscriptionsRef.current;
+        const count = subscriptions.get(type) || 0;
+        subscriptions.set(type, count + 1);
+        if (!count) sendRaw({ action: "subscribe", type });
+        let active = true;
+        return () => {
+            if (!active) return;
+            active = false;
+            const remaining = (subscriptions.get(type) || 1) - 1;
+            if (remaining) {
+                subscriptions.set(type, remaining);
+            } else {
+                subscriptions.delete(type);
+                sendRaw({ action: "unsubscribe", type });
+            }
+        };
+    }, [sendRaw]);
+
+    return { isConnected: readyState === ReadyState.OPEN, connectionError, requestRefresh, subscribe };
 };

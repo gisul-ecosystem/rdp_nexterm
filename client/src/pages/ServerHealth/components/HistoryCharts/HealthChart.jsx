@@ -8,6 +8,7 @@ const labelFor = (iso, range) => {
     const date = new Date(iso);
     if (range === "30d") return date.toLocaleDateString([], { month: "short", day: "numeric" });
     if (LONG_RANGES.has(range)) return date.toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" });
+    if (range === "live") return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 };
 
@@ -50,7 +51,7 @@ export const HealthChart = ({ points, range, series, thresholds = [], format, ma
     const options = useMemo(() => ({
         responsive: true,
         maintainAspectRatio: false,
-        animation: { duration: 300 },
+        animation: range === "live" ? false : { duration: 300 },
         interaction: { mode: "index", intersect: false },
         plugins: {
             legend: {
@@ -91,7 +92,7 @@ export const HealthChart = ({ points, range, series, thresholds = [], format, ma
                 ticks: { color: theme.text, maxTicksLimit: 5, font: { size: 11 }, callback: (v) => format(v) },
             },
         },
-    }), [theme, format, max]);
+    }), [theme, format, max, range]);
 
     return <Line data={data} options={options} />;
 };

@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { mdiHeartPulse, mdiRefresh, mdiTuneVariant } from "@mdi/js";
 import { useTranslation } from "react-i18next";
 import PageHeader from "@/common/components/PageHeader";
@@ -18,12 +18,27 @@ import CapacityPlanning from "./components/CapacityPlanning";
 import SessionsLoad from "./components/SessionsLoad";
 import HealthSettingsDialog from "./components/HealthSettingsDialog";
 import { usePolling } from "./usePolling.js";
+import { useRealtimeHealth } from "./useRealtimeHealth.js";
 import "./styles.sass";
 
 const LIVE_REFRESH_MS = 5000;
+const LIVE_REFRESH_REALTIME_MS = 15000;
 const PLANNING_REFRESH_MS = 60000;
-const HISTORY_REFRESH_MS = { "1h": 15000, "6h": 60000, "24h": 60000, "7d": 300000, "30d": 300000 };
+const HISTORY_REFRESH_MS = { live: 3600000, "1h": 15000, "6h": 60000, "24h": 60000, "7d": 300000, "30d": 300000 };
+const SPARK_POINTS = 120;
 const ALERT_PAGE = 20;
+
+const mergeRealtime = (live, points, latest) => {
+    const { t: at, traffic, ...readings } = latest;
+    const rates = new Map(traffic.map(([id, inRate, outRate]) => [id, { inRate, outRate }]));
+    return {
+        ...live,
+        now: at,
+        sample: { ...live.sample, ...readings },
+        recent: points.slice(-SPARK_POINTS),
+        sessions: live.sessions.map((s) => ({ ...s, ...(rates.get(s.sessionId) || { inRate: 0, outRate: 0 }) })),
+    };
+};
 
 export const ServerHealth = () => {
     const { t } = useTranslation();
@@ -33,7 +48,7 @@ export const ServerHealth = () => {
     const canManage = hasPermission(Permission.SETTINGS_SERVER_HEALTH);
 
     const [live, setLive] = useState(null);
-    const [range, setRange] = useState("1h");
+    const [range, setRange] = useState("live");
     const [history, setHistory] = useState(null);
     const [planning, setPlanning] = useState(null);
     const [alertHistory, setAlertHistory] = useState({ alerts: [], total: 0 });
@@ -67,6 +82,7 @@ export const ServerHealth = () => {
     }, [sendToast, t, loadAlertHistory]);
 
     const loadHistory = useCallback(async () => {
+        if (range === "live") return;
         try {
             setHistory(await getRequest(`health/history?range=${range}`));
         } catch {
@@ -82,7 +98,13 @@ export const ServerHealth = () => {
         }
     }, []);
 
-    usePolling(loadLive, LIVE_REFRESH_MS);
+    const realtime = useRealtimeHealth(!!live?.ready);
+    const view = useMemo(
+        () => (live?.ready && realtime.latest ? mergeRealtime(live, realtime.points, realtime.latest) : live),
+        [live, realtime.points, realtime.latest],
+    );
+
+    usePolling(loadLive, realtime.connected ? LIVE_REFRESH_REALTIME_MS : LIVE_REFRESH_MS);
     usePolling(loadHistory, HISTORY_REFRESH_MS[range]);
     usePolling(loadPlanning, PLANNING_REFRESH_MS);
 
@@ -115,17 +137,27 @@ export const ServerHealth = () => {
     return (
         <div className="health-page">
             <PageHeader icon={mdiHeartPulse} title={t("health.page.title")} subtitle={t("health.page.subtitle")}>
-                {live?.now && <span className="health-updated">{t("health.page.updated", { time: formatClock(live.now) })}</span>}
+                {realtime.connected ? (
+                    <span className="health-updated health-live-indicator" title={t("health.page.liveHint")}>
+                        <span className="health-live-dot" />
+                        {t("health.page.live")}
+                    </span>
+                ) : live?.ready ? (
+                    <span className="health-updated health-live-indicator health-live-indicator--waiting">
+                        <span className="health-live-dot" />
+                        {t("health.page.reconnecting")}
+                    </span>
+                ) : live?.now && <span className="health-updated">{t("health.page.updated", { time: formatClock(live.now) })}</span>}
                 <Button type="secondary" icon={mdiRefresh} text={t("health.page.refresh")} onClick={refreshAll} />
                 <Button icon={mdiTuneVariant} text={t("health.page.settings")} onClick={() => setSettingsOpen(true)} />
             </PageHeader>
 
             <div className="health-content">
-                <StatusHero live={live} />
+                <StatusHero live={view} />
 
-                {live?.ready ? (
+                {view?.ready ? (
                     <>
-                        <MetricCards live={live} />
+                        <MetricCards live={view} />
                         <div className="health-split">
                             <CapacityCard live={live} canManage={canManage} onOpenSettings={() => setSettingsOpen(true)} />
                             <AlertsPanel
@@ -135,9 +167,14 @@ export const ServerHealth = () => {
                                 onShowMore={showMoreAlerts}
                             />
                         </div>
-                        <HistoryCharts range={range} onRangeChange={setRange} history={history} live={live} />
+                        <HistoryCharts
+                            range={range}
+                            onRangeChange={setRange}
+                            history={range === "live" ? { range, points: realtime.points } : history}
+                            live={live}
+                        />
                         <CapacityPlanning planning={planning} />
-                        <SessionsLoad sessions={live.sessions} now={live.now} />
+                        <SessionsLoad sessions={view.sessions} now={view.now} />
                     </>
                 ) : live && (
                     <div className="health-collecting">

@@ -21,6 +21,11 @@ const CAPACITY_WINDOW_DAYS = 7;
 const CAPACITY_REFRESH_MS = 5 * 60 * 1000;
 const DAILY_RETENTION_DAYS = 400;
 const DATA_PATH = path.join(__dirname, "../../data");
+const REALTIME_MS = 1000;
+const REALTIME_POINTS = 300;
+const REALTIME_IDLE_MS = 30 * 1000;
+const REALTIME_FIELDS = ["cpu", "steal", "load1", "memUsed", "memTotal", "diskUsed", "diskTotal", "diskRead", "diskWrite",
+    "netRx", "netTx", "primaryMbps", "serverCpu", "serverRss", "engineCpu", "engineRss"];
 
 let timer = null;
 let cleanupTimer = null;
@@ -137,7 +142,8 @@ const collectSessions = (seconds) => {
     return { ...counts, users: users.size };
 };
 
-const buildSample = (snap, before, settings) => {
+// Host and process load between two snapshots; no side effects.
+const computeLoad = (snap, before, settings) => {
     const seconds = (snap.at - before.at) / 1000;
     const cpu = hostMetrics.cpuPercentages(before.cpuTimes, snap.cpuTimes) || { cpu: 0, iowait: 0, steal: 0 };
 
@@ -156,15 +162,8 @@ const buildSample = (snap, before, settings) => {
 
     // Process CPU as a share of the whole VM, comparable with the host CPU figure.
     const procCpu = (next, old) => Math.max(0, ((next - old) / hostMetrics.CLOCK_TICKS / seconds / (host.cpus || 1)) * 100);
-    const lagMs = lagMonitor ? lagMonitor.mean / 1e6 : 0;
-    const lagP99Ms = lagMonitor ? lagMonitor.percentile(99) / 1e6 : 0;
-    lagMonitor?.reset();
-
-    const engineConnected = controlPlane.hasEngine();
-    engineDownSince = engineConnected ? null : (engineDownSince ?? snap.at);
 
     return {
-        timestamp: new Date(snap.at),
         cpu: cpu.cpu,
         iowait: cpu.iowait,
         steal: cpu.steal,
@@ -184,12 +183,131 @@ const buildSample = (snap, before, settings) => {
         engineCpu: procCpu(snap.processes.engine.cpuTicks, before.processes.engine.cpuTicks),
         engineRss: snap.processes.engine.rss,
         engineProcesses: snap.processes.engine.processes,
+        interfaces,
+    };
+};
+
+const buildSample = (snap, before, settings) => {
+    const lagMs = lagMonitor ? lagMonitor.mean / 1e6 : 0;
+    const lagP99Ms = lagMonitor ? lagMonitor.percentile(99) / 1e6 : 0;
+    lagMonitor?.reset();
+
+    const engineConnected = controlPlane.hasEngine();
+    engineDownSince = engineConnected ? null : (engineDownSince ?? snap.at);
+
+    return {
+        timestamp: new Date(snap.at),
+        ...computeLoad(snap, before, settings),
         lagMs,
         lagP99Ms,
         engineConnected,
-        interfaces,
-        ...collectSessions(seconds),
+        ...collectSessions((snap.at - before.at) / 1000),
     };
+};
+
+// Real-time view: a 1-second reading that only runs while a Server Health page is subscribed.
+const realtimeViewers = new Map();
+const realtimePoints = [];
+const realtimeBytes = new Map();
+let realtimeTimer = null;
+let realtimePrev = null;
+let realtimeLag = null;
+let realtimeIdleSince = null;
+let realtimeTicks = 0;
+
+const round2 = (v) => Math.round((Number(v) || 0) * 100) / 100;
+
+const realtimeSessions = (seconds) => {
+    const users = new Set();
+    const counts = { sessions: 0, guacSessions: 0, users: 0 };
+    const traffic = [];
+    const seen = new Set();
+    for (const s of SessionManager.listAll()) {
+        counts.sessions++;
+        if (s.configuration?.renderer === "guac") counts.guacSessions++;
+        users.add(s.accountId);
+        seen.add(s.sessionId);
+        const last = realtimeBytes.get(s.sessionId);
+        realtimeBytes.set(s.sessionId, { bytesIn: s.bytesIn, bytesOut: s.bytesOut });
+        if (!last) continue;
+        const inRate = rate(s.bytesIn, last.bytesIn, seconds), outRate = rate(s.bytesOut, last.bytesOut, seconds);
+        if (inRate || outRate) traffic.push([s.sessionId, Math.round(inRate), Math.round(outRate)]);
+    }
+    for (const id of realtimeBytes.keys()) if (!seen.has(id)) realtimeBytes.delete(id);
+    return { ...counts, users: users.size, traffic };
+};
+
+const sendRealtime = (ws, data) => {
+    if (ws.readyState !== 1) return;
+    try {
+        ws.send(typeof data === "string" ? data : JSON.stringify(data));
+    } catch (error) {
+        logger.error("Could not push real-time health", { error: error.message });
+    }
+};
+
+const recheckRealtimeViewers = async () => {
+    const { hasSystemPermission } = require("../permissions/engine");
+    const { Permission } = require("../permissions/registry");
+    for (const [ws, accountId] of realtimeViewers) {
+        if (!(await hasSystemPermission(accountId, Permission.SERVER_HEALTH_VIEW))) removeRealtimeViewer(ws);
+    }
+};
+
+const stopRealtime = () => {
+    clearInterval(realtimeTimer);
+    realtimeTimer = null;
+    realtimeLag?.disable();
+    realtimeLag = null;
+    realtimePrev = null;
+    realtimePoints.length = 0;
+    realtimeBytes.clear();
+};
+
+const realtimeTick = () => {
+    try {
+        if (!realtimeViewers.size && Date.now() - realtimeIdleSince >= REALTIME_IDLE_MS) return stopRealtime();
+        const snap = hostMetrics.snapshot(DATA_PATH);
+        const before = realtimePrev;
+        realtimePrev = snap;
+        if (!before) return;
+
+        const load = computeLoad(snap, before, settingsCache);
+        const point = { t: new Date(snap.at).toISOString() };
+        for (const key of REALTIME_FIELDS) point[key] = round2(load[key]);
+        point.lagMs = round2(realtimeLag.mean / 1e6);
+        point.lagP99Ms = round2(realtimeLag.percentile(99) / 1e6);
+        realtimeLag.reset();
+        Object.assign(point, realtimeSessions((snap.at - before.at) / 1000));
+
+        realtimePoints.push(point);
+        if (realtimePoints.length > REALTIME_POINTS) realtimePoints.shift();
+        const message = JSON.stringify({ type: "HEALTH_LIVE", data: { point } });
+        for (const ws of realtimeViewers.keys()) sendRealtime(ws, message);
+
+        if (++realtimeTicks % 60 === 0) recheckRealtimeViewers().catch(() => {});
+    } catch (error) {
+        logger.error("Real-time health reading failed", { error: error.message });
+    }
+};
+
+const addRealtimeViewer = (ws, accountId) => {
+    if (!host) return false;
+    realtimeViewers.set(ws, accountId);
+    realtimeIdleSince = null;
+    if (!realtimeTimer) {
+        realtimeLag = monitorEventLoopDelay({ resolution: 20 });
+        realtimeLag.enable();
+        realtimePrev = hostMetrics.snapshot(DATA_PATH);
+        realtimeTimer = setInterval(realtimeTick, REALTIME_MS);
+    }
+    sendRealtime(ws, { type: "HEALTH_LIVE", data: { points: realtimePoints, intervalMs: REALTIME_MS } });
+    return true;
+};
+
+const removeRealtimeViewer = (ws) => {
+    if (!realtimeViewers.delete(ws)) return;
+    if (!realtimeViewers.size) realtimeIdleSince = Date.now();
 };
 
 const updateDaily = async (minute) => {
@@ -312,6 +430,8 @@ const stop = async () => {
     clearInterval(cleanupTimer);
     timer = null;
     lagMonitor?.disable();
+    realtimeViewers.clear();
+    stopRealtime();
     await flushMinute();
 };
 
@@ -333,6 +453,9 @@ module.exports = {
     getSessionTraffic: () => sessionTraffic,
     getActiveAlerts: () => evaluator.activeAlerts(),
     getWebhookStatus: () => webhookStatus,
+    addRealtimeViewer,
+    removeRealtimeViewer,
+    getRealtimeStatus: () => ({ running: !!realtimeTimer, viewers: realtimeViewers.size, intervalMs: REALTIME_MS }),
     markAcknowledged: (id, acknowledgedAt, acknowledgedBy) => {
         const alert = evaluator.activeAlerts().find((a) => a.id === id);
         if (alert) Object.assign(alert, { acknowledgedAt, acknowledgedBy });

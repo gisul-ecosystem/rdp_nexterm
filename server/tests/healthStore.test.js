@@ -28,7 +28,36 @@ before(async () => {
 });
 
 after(async () => {
+    await healthService?.stop();
     await db?.close();
+});
+
+test("real-time readings go to subscribers once a second and stop for removed ones", { skip: !hasDeps || !fs.existsSync("/proc/stat") }, async () => {
+    await healthService.start();
+    const messages = [];
+    const ws = { readyState: 1, send: (m) => messages.push(JSON.parse(m)) };
+    assert.equal(healthService.addRealtimeViewer(ws, 1), true);
+    assert.deepEqual(messages[0], { type: "HEALTH_LIVE", data: { points: [], intervalMs: 1000 } });
+
+    await new Promise((r) => setTimeout(r, 3300));
+    const points = messages.slice(1).map((m) => m.data.point);
+    assert.ok(points.length >= 2 && points.length <= 4, `got ${points.length} points in 3.3 s`);
+    const p = points.at(-1);
+    for (const key of ["cpu", "memUsed", "memTotal", "netRx", "diskRead", "lagP99Ms", "sessions", "serverRss"]) assert.equal(typeof p[key], "number", key);
+    assert.ok(p.cpu >= 0 && p.cpu <= 100);
+    assert.ok(Array.isArray(p.traffic));
+    assert.deepEqual(healthService.getRealtimeStatus(), { running: true, viewers: 1, intervalMs: 1000 });
+
+    const late = { readyState: 1, send: (m) => messages.push({ late: JSON.parse(m) }) };
+    healthService.addRealtimeViewer(late, 2);
+    assert.ok(messages.at(-1).late.data.points.length >= 2, "a new subscriber gets the recent points");
+
+    healthService.removeRealtimeViewer(ws);
+    healthService.removeRealtimeViewer(late);
+    const count = messages.length;
+    await new Promise((r) => setTimeout(r, 1500));
+    assert.equal(messages.length, count, "removed subscribers get nothing");
+    assert.equal(healthService.getRealtimeStatus().viewers, 0);
 });
 
 test("settings load, save and reload with rules as an object", { skip: !hasDeps }, async () => {

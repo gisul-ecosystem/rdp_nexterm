@@ -82,6 +82,7 @@ const getLive = async () => {
             alerts,
             rules: Object.fromEntries(Object.keys(RULES).map((key) => [key, ruleConfig(key, settings.rules)])),
             sampleIntervalSeconds: healthService.SAMPLE_MS / 1000,
+            realtime: healthService.getRealtimeStatus(),
         };
     } catch (error) {
         logger.error("Error loading live server health", { error: error.message });

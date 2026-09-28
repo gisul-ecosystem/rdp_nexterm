@@ -6,6 +6,7 @@ export const StateStreamContext = createContext({});
 export { STATE_TYPES };
 
 const stateTypes = Object.values(STATE_TYPES).filter(t => t !== "LOGOUT");
+const unbufferedTypes = new Set([STATE_TYPES.HEALTH_LIVE]);
 
 export const StateStreamProvider = ({ children }) => {
     const { sessionToken } = useContext(UserContext);
@@ -14,13 +15,13 @@ export const StateStreamProvider = ({ children }) => {
 
     const stateHandlers = useMemo(() => ({
         ...Object.fromEntries(stateTypes.map(t => [t, (data) => {
-            stateBufferRef.current[t] = data;
+            if (!unbufferedTypes.has(t)) stateBufferRef.current[t] = data;
             handlersRef.current[t].forEach(h => h(data));
         }])),
         [STATE_TYPES.LOGOUT]: forceLogoutClient
     }), []);
 
-    const { isConnected, connectionError, requestRefresh } = useStateStream(sessionToken, stateHandlers);
+    const { isConnected, connectionError, requestRefresh, subscribe } = useStateStream(sessionToken, stateHandlers);
 
     useEffect(() => {
         if (!sessionToken) stateBufferRef.current = Object.fromEntries(stateTypes.map(t => [t, null]));
@@ -37,8 +38,9 @@ export const StateStreamProvider = ({ children }) => {
         isConnected, 
         connectionError, 
         registerHandler, 
-        requestRefresh 
-    }), [isConnected, connectionError, registerHandler, requestRefresh]);
+        requestRefresh,
+        subscribe,
+    }), [isConnected, connectionError, registerHandler, requestRefresh, subscribe]);
     
     return <StateStreamContext.Provider value={contextValue}>{children}</StateStreamContext.Provider>;
 };

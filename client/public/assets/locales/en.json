@@ -399,7 +399,10 @@
       "settings": "Alert settings",
       "refresh": "Refresh",
       "collecting": "Collecting the first measurements…",
-      "updated": "Updated {{time}}"
+      "updated": "Updated {{time}}",
+      "live": "Live · every second",
+      "liveHint": "Readings are pushed every second while this page is open",
+      "reconnecting": "Live view reconnecting…"
     },
     "errors": {
       "load": "Failed to load server health",
@@ -474,6 +477,7 @@
     "charts": {
       "title": "History",
       "ranges": {
+        "live": "Live (5 min)",
         "1h": "1 hour",
         "6h": "6 hours",
         "24h": "24 hours",

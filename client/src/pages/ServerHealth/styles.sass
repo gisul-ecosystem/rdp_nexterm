@@ -18,6 +18,27 @@
     @media (max-width: breakpoints.$mobile)
       display: none
 
+  .health-live-indicator
+    display: inline-flex
+    align-items: center
+    gap: 0.45rem
+    padding: 0.3rem 0.7rem
+    border-radius: 999px
+    color: colors.$success
+    background-color: colors.$success-opacity
+    font-weight: 600
+
+    .health-live-dot
+      width: 0.5rem
+      height: 0.5rem
+      border-radius: 50%
+      background-color: currentColor
+      animation: healthPulse 1.4s ease-in-out infinite
+
+    &--waiting
+      color: colors.$subtext
+      background-color: color-mix(in srgb, colors.$subtext 12%, transparent)
+
   .health-content
     display: flex
     flex-direction: column

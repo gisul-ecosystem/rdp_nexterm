@@ -8,7 +8,7 @@ import { useChartTheme } from "../../chartTheme.js";
 import { HealthChart } from "./HealthChart.jsx";
 import "./styles.sass";
 
-const RANGES = ["1h", "6h", "24h", "7d", "30d"];
+const RANGES = ["live", "1h", "6h", "24h", "7d", "30d"];
 const formatCount = (v) => String(Math.round(v));
 
 export const HistoryCharts = ({ range, onRangeChange, history, live }) => {
@@ -92,7 +92,7 @@ export const HistoryCharts = ({ range, onRangeChange, history, live }) => {
                     <div key={chart.key} className="health-card health-chart-card">
                         <h4>{t(`health.charts.${chart.key}`)}</h4>
                         <div className="health-chart-canvas">
-                            {!points ? (
+                            {!points || (range === "live" && points.length < 2) ? (
                                 <div className="health-chart-loading" />
                             ) : points.length < 2 ? (
                                 <div className="health-chart-empty">
