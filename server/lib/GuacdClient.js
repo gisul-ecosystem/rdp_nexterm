@@ -16,12 +16,12 @@
  * Modified by Mathias Wagner, 2026
  */
 
+const { StringDecoder } = require('node:string_decoder');
 const SessionManager = require('./SessionManager');
 const logger = require('../utils/logger');
 
-const DELIMITER = 0x3B;
-const ERROR_MARK = Buffer.from('.error,');
-const READY_MARK = Buffer.from('5.ready');
+const ERROR_TEXT = '.error,';
+const ERROR_MARK = Buffer.from(ERROR_TEXT);
 // Match error instructions only at instruction boundaries (start of string or after ';')
 // to avoid false positives from filenames or clipboard text containing ".error,"
 const ERROR_PATTERN = /(?:^|;)\d+\.error,(\d+)\.([^,]+),/;
@@ -44,7 +44,9 @@ class GuacdClient {
 
         this.state = 'connecting';
         this.handshakeComplete = false;
-        this.receivedBuffer = Buffer.alloc(0);
+        this.receivedBuffer = '';
+        // Keeps a multi-byte character that is split across two socket chunks intact.
+        this.decoder = new StringDecoder('utf8');
         // The master connection receives every display update like a viewer but nobody reads it; once ready it only
         // needs to notice errors, so the updates are dropped as raw bytes instead of being decoded and parsed.
         this.discardOutput = false;
@@ -79,12 +81,13 @@ class GuacdClient {
                 const previousTail = this.discardTail;
                 if (!this.mayContainError(data)) return;
                 this.discardOutput = false;
-                this.receivedBuffer = Buffer.concat([previousTail, data]);
+                this.decoder = new StringDecoder('utf8');
+                this.receivedBuffer = this.decoder.write(Buffer.concat([previousTail, data]));
             } else {
-                this.receivedBuffer = this.receivedBuffer.length ? Buffer.concat([this.receivedBuffer, data]) : data;
+                this.receivedBuffer += this.decoder.write(data);
             }
             if (!this.handshakeComplete) {
-                if (this.receivedBuffer.indexOf(DELIMITER) !== -1) this.completeHandshake();
+                if (this.receivedBuffer.indexOf(';') !== -1) this.completeHandshake();
                 return;
             }
             this.processData();
@@ -102,9 +105,9 @@ class GuacdClient {
     }
 
     completeHandshake() {
-        const delimiterPos = this.receivedBuffer.indexOf(DELIMITER);
-        const serverHandshake = this.receivedBuffer.subarray(0, delimiterPos).toString();
-        this.receivedBuffer = this.receivedBuffer.subarray(delimiterPos + 1);
+        const delimiterPos = this.receivedBuffer.indexOf(';');
+        const serverHandshake = this.receivedBuffer.substring(0, delimiterPos);
+        this.receivedBuffer = this.receivedBuffer.substring(delimiterPos + 1);
 
         const attributes = serverHandshake.split(',');
         const conn = this.connectionSettings.connection || {};
@@ -147,9 +150,9 @@ class GuacdClient {
 
     resumeDiscarding() {
         if (this.onDataCallback || !this.connectionId || this.state !== 'open') return;
-        if (this.receivedBuffer.includes(ERROR_MARK)) return;
-        this.discardTail = Buffer.from(this.receivedBuffer.subarray(-ERROR_MARK.length));
-        this.receivedBuffer = Buffer.alloc(0);
+        if (this.receivedBuffer.includes(ERROR_TEXT)) return;
+        this.discardTail = Buffer.from(this.receivedBuffer.slice(-ERROR_TEXT.length));
+        this.receivedBuffer = '';
         this.discardOutput = true;
     }
 
@@ -161,13 +164,14 @@ class GuacdClient {
     }
 
     processData() {
-        const delimiterPos = this.receivedBuffer.lastIndexOf(DELIMITER);
+        const delimiterPos = this.receivedBuffer.lastIndexOf(';');
         if (delimiterPos === -1) return;
 
-        const dataToSend = this.receivedBuffer.subarray(0, delimiterPos + 1);
-        this.receivedBuffer = this.receivedBuffer.subarray(delimiterPos + 1);
+        const dataToSend = this.receivedBuffer.substring(0, delimiterPos + 1);
+        this.receivedBuffer = this.receivedBuffer.substring(delimiterPos + 1);
+        if (!dataToSend) return;
 
-        const errorMatch = dataToSend.includes(ERROR_MARK) ? ERROR_PATTERN.exec(dataToSend.toString()) : null;
+        const errorMatch = dataToSend.includes(ERROR_TEXT) ? ERROR_PATTERN.exec(dataToSend) : null;
         if (errorMatch) {
             const errorMessage = errorMatch[2];
             logger.error('Guacd error received', { sessionId: this.sessionId, error: errorMessage });
@@ -177,8 +181,8 @@ class GuacdClient {
             return;
         }
 
-        if (!this.connectionId && dataToSend.includes(READY_MARK)) {
-            const match = /5\.ready,(\d+)\.([^;]+);/.exec(dataToSend.toString());
+        if (!this.connectionId && dataToSend.includes('5.ready')) {
+            const match = /5\.ready,(\d+)\.([^;]+);/.exec(dataToSend);
             if (match?.[2]) {
                 this.connectionId = match[2];
                 logger.info('Connection ready', { sessionId: this.sessionId, connectionId: this.connectionId });

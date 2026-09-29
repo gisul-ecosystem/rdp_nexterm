@@ -75,7 +75,7 @@ test("master: '.error,' inside normal data does not close and dropping resumes",
     client.close();
 });
 
-test("viewer: receives complete instructions as bytes, split input is joined", () => {
+test("viewer: receives complete instructions, split input is joined", () => {
     const received = [];
     const { client, feed } = start({ joinConnectionId: "$abc", onData: (d) => received.push(Buffer.from(d).toString()) });
     feed(HANDSHAKE, READY + FRAME.slice(0, 25), FRAME.slice(25) + "4.sync,3.124");
@@ -94,7 +94,7 @@ test("viewer: multi-byte text stays intact when a chunk splits a character", () 
     const bytes = Buffer.from(text);
     client.connection.emit("data", bytes.subarray(0, 10));
     client.connection.emit("data", bytes.subarray(10));
-    assert.equal(Buffer.concat(received).toString(), text);
+    assert.equal(received.join(""), text);
     client.close();
 });
 
