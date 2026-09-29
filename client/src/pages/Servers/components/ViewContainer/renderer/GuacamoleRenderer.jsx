@@ -24,6 +24,17 @@ const SIZE_CONFIRM_ATTEMPTS = 6;
 // resized (full screen transitions, window drags) the picture is only scaled locally and the size is sent once settled.
 const SIZE_SETTLE_MS = 300;
 
+// Every remote pixel is encoded by the engine for every frame. On scaled or high-DPI screens the device-pixel size can be
+// 2-4x the window size, so beyond the window's own size the requested resolution is capped at the pixel count of 1080p.
+const MAX_HIDPI_PIXELS = 1920 * 1080;
+
+const remoteSizeOf = (cssWidth, cssHeight, density) => {
+    const [w, h] = [cssWidth * density, cssHeight * density];
+    const limit = Math.max(MAX_HIDPI_PIXELS, cssWidth * cssHeight);
+    const factor = w * h > limit ? Math.sqrt(limit / (w * h)) : 1;
+    return [Math.round(w * factor), Math.round(h * factor)];
+};
+
 const SHORTCUT_HOLD = 50;
 
 const ZOOM_MIN = 1;
@@ -238,9 +249,7 @@ const GuacamoleRenderer = ({
         const [cw, ch] = [ref.current.clientWidth, ref.current.clientHeight];
 
         if (cw > 0 && ch > 0) {
-            const density = window.devicePixelRatio || 1;
-            const dw = Math.round(cw * density);
-            const dh = Math.round(ch * density);
+            const [dw, dh] = remoteSizeOf(cw, ch, window.devicePixelRatio || 1);
 
             const monitor = activeMonitorRef.current;
             const last = lastSentRef.current;

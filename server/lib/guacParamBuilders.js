@@ -52,10 +52,10 @@ const buildRdpParams = async (cfg, identity, accountId) => {
     if (cfg.rdpSecurity) params["security"] = cfg.rdpSecurity;
 
     params["disable-gfx"] = "false";
-    params["force-lossless"] = cfg.forceLossless === false ? "false" : "true";
+    params["force-lossless"] = cfg.forceLossless === true ? "true" : "false";
 
     if (cfg.colorDepth) params["color-depth"] = String(cfg.colorDepth);
-    if (cfg.enableWallpaper !== false) params["enable-wallpaper"] = "true";
+    if (cfg.enableWallpaper === true) params["enable-wallpaper"] = "true";
     if (cfg.enableTheming !== false) params["enable-theming"] = "true";
     if (cfg.enableFontSmoothing !== false) params["enable-font-smoothing"] = "true";
     if (cfg.enableFullWindowDrag === true) params["enable-full-window-drag"] = "true";

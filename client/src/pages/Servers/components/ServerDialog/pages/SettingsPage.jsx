@@ -76,13 +76,13 @@ const SettingsPage = ({ config, setConfig, monitoringEnabled, setMonitoringEnabl
     const [colorDepth, setColorDepth] = useState(config?.colorDepth || "");
     const [resizeMethod, setResizeMethod] = useState(config?.resizeMethod || "display-update");
     const [enableAudio, setEnableAudio] = useState(config?.enableAudio !== false);
-    const [enableWallpaper, setEnableWallpaper] = useState(config?.enableWallpaper !== false);
+    const [enableWallpaper, setEnableWallpaper] = useState(config?.enableWallpaper === true);
     const [enableTheming, setEnableTheming] = useState(config?.enableTheming !== false);
     const [enableFontSmoothing, setEnableFontSmoothing] = useState(config?.enableFontSmoothing !== false);
     const [enableFullWindowDrag, setEnableFullWindowDrag] = useState(config?.enableFullWindowDrag === true);
     const [enableDesktopComposition, setEnableDesktopComposition] = useState(config?.enableDesktopComposition === true);
     const [enableMenuAnimations, setEnableMenuAnimations] = useState(config?.enableMenuAnimations === true);
-    const [forceLossless, setForceLossless] = useState(config?.forceLossless !== false);
+    const [forceLossless, setForceLossless] = useState(config?.forceLossless === true);
     const [wakeOnLanEnabled, setWakeOnLanEnabled] = useState(config?.wakeOnLanEnabled === true);
     const [rdpSecurity, setRdpSecurity] = useState(config?.rdpSecurity || "");
     const [backspaceMode, setBackspaceMode] = useState(config?.backspaceMode || "del");
@@ -414,7 +414,7 @@ const SettingsPage = ({ config, setConfig, monitoringEnabled, setMonitoringEnabl
                         <div className="settings-toggle-info">
                             <span className="settings-toggle-label">Force lossless (anti-pixelation)</span>
                             <span className="settings-toggle-description">
-                                Disables Guacamole lossy compression that causes blocky YouTube. Uses more CPU/bandwidth.
+                                No blocky patches during video or fast scrolling. Off by default: costs about 1.5-2.5x the server CPU and 2x the bandwidth.
                             </span>
                         </div>
                         <ToggleSwitch checked={forceLossless} onChange={(val) => handleDisplaySettingChange('forceLossless', val, setForceLossless)} id="force-lossless" />
