@@ -52,7 +52,7 @@ class GuacdClient {
         this.discardOutput = false;
         this.discardTail = Buffer.alloc(0);
 
-        this.GUAC_AUDIO = this.connectionSettings.enableAudio !== false ? ['audio/L8', 'audio/L16'] : [];
+        this.GUAC_AUDIO = this.connectionSettings.enableAudio === true ? ['audio/L8', 'audio/L16'] : [];
         this.GUAC_VIDEO = [];
         this.GUAC_IMAGE = ['image/png', 'image/jpeg', 'image/webp'];
 

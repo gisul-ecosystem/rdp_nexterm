@@ -2062,7 +2062,7 @@
         },
         "audio": {
           "enableAudio": "Enable Audio",
-          "enableAudioDesc": "Stream audio from the remote system to your browser"
+          "enableAudioDesc": "Stream audio from the remote system to your browser (off by default: uncompressed, about 1.4 Mbps)"
         },
         "terminal": {
           "title": "Terminal Compatibility",

@@ -61,6 +61,7 @@ const buildRdpParams = async (cfg, identity, accountId) => {
     if (cfg.enableFullWindowDrag === true) params["enable-full-window-drag"] = "true";
     if (cfg.enableDesktopComposition === true) params["enable-desktop-composition"] = "true";
     if (cfg.enableMenuAnimations === true) params["enable-menu-animations"] = "true";
+    if (cfg.enableAudio !== true) params["disable-audio"] = "true";
 
     if (accountId !== undefined && accountId !== null) {
         params["enable-drive"] = "true";

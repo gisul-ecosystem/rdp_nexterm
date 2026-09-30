@@ -107,6 +107,7 @@ const GuacamoleRenderer = ({
     const confirmAttemptsRef = useRef(0);
     const pendingSizeRef = useRef(null);
     const settleTimerRef = useRef(null);
+    const sizeCheckTimerRef = useRef(null);
     const { getParsedKeybind } = useKeymaps();
     const { sendToast } = useToast();
     const { t } = useTranslation();
@@ -116,7 +117,7 @@ const GuacamoleRenderer = ({
     const audioPlayersRef = useRef([]);
     const [isDragOver, setIsDragOver] = useState(false);
     const browserFsRef = useRef(null);
-    const clipboardIntervalRef = useRef(null);
+    const clipboardSyncCleanupRef = useRef(null);
     const errorMessageRef = useRef(null);
     const [connectionError, setConnectionError] = useState(() => getSessionError?.(session.id) || null);
     const errorShownRef = useRef(!!connectionError);
@@ -282,6 +283,10 @@ const GuacamoleRenderer = ({
                 lastSentRef.current = { w: dw, h: dh, monitor, at: Date.now() };
                 confirmAttemptsRef.current = changed ? 0 : confirmAttemptsRef.current + 1;
             }
+
+            const confirmPending = !applied && confirmAttemptsRef.current < SIZE_CONFIRM_ATTEMPTS;
+            clearTimeout(sizeCheckTimerRef.current);
+            sizeCheckTimerRef.current = setTimeout(resizeHandler, (confirmPending ? SIZE_CONFIRM_INTERVAL : SIZE_RESEND_INTERVAL) + 20);
         }
 
         applyViewport();
@@ -485,9 +490,11 @@ const GuacamoleRenderer = ({
         }
     }, [uploadFiles]);
 
+    // Read the local clipboard only when the user comes back to the desktop (after copying elsewhere), not on a timer.
     const startClipboardPolling = (initialValue = "") => {
         let cached = initialValue;
-        clipboardIntervalRef.current = setInterval(async () => {
+        const sync = async () => {
+            if (document.visibilityState !== "visible" || !document.hasFocus()) return;
             try {
                 const t = await navigator.clipboard.readText();
                 if (t !== cached) {
@@ -496,7 +503,18 @@ const GuacamoleRenderer = ({
                 }
             } catch {
             }
-        }, 500);
+        };
+        const el = ref.current;
+        el?.addEventListener("focus", sync);
+        el?.addEventListener("pointerenter", sync);
+        window.addEventListener("focus", sync);
+        document.addEventListener("visibilitychange", sync);
+        clipboardSyncCleanupRef.current = () => {
+            el?.removeEventListener("focus", sync);
+            el?.removeEventListener("pointerenter", sync);
+            window.removeEventListener("focus", sync);
+            document.removeEventListener("visibilitychange", sync);
+        };
     };
 
     const initClipboardPolling = async () => {
@@ -560,10 +578,8 @@ const GuacamoleRenderer = ({
         ref.current.addEventListener("paste", onPaste);
         return () => {
             ref.current?.removeEventListener("paste", onPaste);
-            if (clipboardIntervalRef.current) {
-                clearInterval(clipboardIntervalRef.current);
-                clipboardIntervalRef.current = null;
-            }
+            clipboardSyncCleanupRef.current?.();
+            clipboardSyncCleanupRef.current = null;
         };
     };
 
@@ -805,11 +821,10 @@ const GuacamoleRenderer = ({
         const observer = ref.current && new ResizeObserver(resizeHandler);
         observer?.observe(ref.current);
         resizeHandler();
-        const interval = setInterval(() => clientRef.current && ref.current && resizeHandler(), 500);
         return () => {
             window.removeEventListener("resize", resizeHandler);
             observer?.disconnect();
-            clearInterval(interval);
+            clearTimeout(sizeCheckTimerRef.current);
             clearTimeout(settleTimerRef.current);
         };
     }, []);

@@ -445,7 +445,7 @@ const prepareGuacamoleSession = async (sessionId, entry, identity, organizationI
         sessionId,
         connectionSettings: {
             connection: { type: protocol, width: 1024, height: 768, dpi: 96, ...params },
-            enableAudio: entry.config?.enableAudio !== false,
+            enableAudio: entry.config?.enableAudio === true,
         },
         recordingEnabled,
         auditLogId: session.auditLogId,

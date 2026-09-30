@@ -75,7 +75,7 @@ const SettingsPage = ({ config, setConfig, monitoringEnabled, setMonitoringEnabl
 
     const [colorDepth, setColorDepth] = useState(config?.colorDepth || "");
     const [resizeMethod, setResizeMethod] = useState(config?.resizeMethod || "display-update");
-    const [enableAudio, setEnableAudio] = useState(config?.enableAudio !== false);
+    const [enableAudio, setEnableAudio] = useState(config?.enableAudio === true);
     const [enableWallpaper, setEnableWallpaper] = useState(config?.enableWallpaper === true);
     const [enableTheming, setEnableTheming] = useState(config?.enableTheming !== false);
     const [enableFontSmoothing, setEnableFontSmoothing] = useState(config?.enableFontSmoothing !== false);
